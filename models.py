@@ -55,6 +55,7 @@ class ScheduleItem(Base):
     duration_minutes = Column(Integer, default=0)
     reason = Column(Text, default="")
     completed = Column(Boolean, default=False)
+    status = Column(String(20), default="planned")
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

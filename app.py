@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import os
 from datetime import date, datetime
-from typing import List
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,10 @@ from schemas import (
     ScheduleUpdate,
 )
 
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATES_DIR = BASE_DIR / "templates"
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FitPilot – AI-Powered Personal Activity Planner", version="1.0.0")
@@ -35,20 +40,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 KB = __import__("knowledge").load_knowledge_base()
 AGENT = PersonalAssistantAgent(KB)
 
 
-def get_db():
+def get_db() -> Iterator[Session]:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+def parse_list_field(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return [str(value).strip()] if str(value).strip() else []
 
 
 def get_or_create_preference(db: Session) -> Preference:
@@ -61,12 +75,44 @@ def get_or_create_preference(db: Session) -> Preference:
     return pref
 
 
-def normalize_profile_payload(payload: dict) -> dict:
-    day = payload.get("day") or date.today().isoformat()
+def serialize_preference(pref: Preference) -> Dict[str, Any]:
+    preferred_activities = parse_list_field(pref.preferred_activities or pref.preferred_activity)
+    if not preferred_activities and pref.preferred_activity:
+        preferred_activities = parse_list_field(pref.preferred_activity)
     return {
-        "day": datetime.fromisoformat(day).date() if isinstance(day, str) else day,
+        "user_name": pref.user_name,
+        "goal": pref.goal,
+        "preferred_activity": pref.preferred_activity,
+        "preferred_activities": preferred_activities,
+        "experience": pref.experience,
+        "wake_time": pref.wake_time,
+        "sleep_time": pref.sleep_time,
+        "work_start": pref.work_start,
+        "work_end": pref.work_end,
+        "study_duration": pref.study_duration,
+        "break_duration": pref.break_duration,
+        "available_minutes": pref.available_minutes,
+        "target_duration": pref.target_duration,
+        "activity_duration": pref.activity_duration,
+        "productivity_goal": pref.productivity_goal,
+        "priorities": pref.priorities,
+    }
+
+
+def normalize_profile_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    raw_day = payload.get("day") or date.today().isoformat()
+    day = datetime.fromisoformat(raw_day).date() if isinstance(raw_day, str) else raw_day
+    preferred = payload.get("preferred_activities")
+    if preferred is None:
+        preferred = payload.get("preferred_activity") or payload.get("preference") or []
+    preferred_activities = parse_list_field(preferred)
+
+    return {
+        "day": day,
         "goal": payload.get("goal", "Build consistency"),
         "preference": payload.get("preference", "Walking"),
+        "preferred_activities": preferred_activities,
+        "preferred_activity": payload.get("preferred_activity") or (preferred_activities[0] if preferred_activities else "Walking"),
         "experience": payload.get("experience", "Beginner"),
         "available_minutes": int(payload.get("available_minutes", 120)),
         "target_duration": int(payload.get("target_duration", 20)),
@@ -76,15 +122,16 @@ def normalize_profile_payload(payload: dict) -> dict:
         "break_duration": int(payload.get("break_duration", 15)),
         "work_start": payload.get("work_start"),
         "work_end": payload.get("work_end"),
-        "preferred_activities": payload.get("preferred_activities", []),
         "productivity_goal": payload.get("productivity_goal", "Stay focused and balanced"),
         "priorities": payload.get("priorities", "Health, focus, recovery"),
+        "activity_durations": payload.get("activity_durations") or {},
     }
 
 
-def build_busy_blocks(payload: dict) -> List[TimeBlock]:
+def build_busy_blocks(payload: Dict[str, Any]) -> List[TimeBlock]:
+    profile = normalize_profile_payload(payload)
+    day = profile["day"]
     busy_blocks: List[TimeBlock] = []
-    day = normalize_profile_payload(payload)["day"]
     work_start = payload.get("work_start")
     work_end = payload.get("work_end")
     if work_start and work_end:
@@ -107,10 +154,11 @@ def build_busy_blocks(payload: dict) -> List[TimeBlock]:
                     busy_blocks.append(TimeBlock(start_dt, end_dt, f"Busy block {idx}"))
             except ValueError:
                 continue
+
     return busy_blocks
 
 
-def schedule_item_to_dict(item: ScheduleItem) -> dict:
+def schedule_item_to_dict(item: ScheduleItem) -> Dict[str, Any]:
     return {
         "id": item.id,
         "schedule_id": item.schedule_id,
@@ -120,11 +168,12 @@ def schedule_item_to_dict(item: ScheduleItem) -> dict:
         "end_time": item.end_time,
         "duration_minutes": item.duration_minutes,
         "reason": item.reason,
-        "completed": item.completed,
+        "completed": bool(item.completed),
+        "status": getattr(item, "status", "completed" if item.completed else "planned"),
     }
 
 
-def schedule_to_dict(schedule: Schedule, items: List[ScheduleItem]) -> dict:
+def schedule_to_dict(schedule: Schedule, items: List[ScheduleItem]) -> Dict[str, Any]:
     return {
         "id": schedule.id,
         "title": schedule.title,
@@ -139,7 +188,7 @@ def schedule_to_dict(schedule: Schedule, items: List[ScheduleItem]) -> dict:
     }
 
 
-def generate_schedule_from_profile(profile: dict, busy_blocks: List[TimeBlock]) -> dict:
+def generate_schedule_from_profile(profile: Dict[str, Any], busy_blocks: List[TimeBlock]) -> Dict[str, Any]:
     day = profile["day"]
     start_dt = make_datetime(day, profile["day_start"])
     end_dt = make_datetime(day, profile["day_end"])
@@ -165,6 +214,8 @@ def generate_schedule_from_profile(profile: dict, busy_blocks: List[TimeBlock]) 
             }
         )
 
+    daily_routine = build_daily_routine(profile, plan, busy_blocks)
+
     return {
         "schedule": {
             "title": f"{profile['goal']} plan",
@@ -173,78 +224,98 @@ def generate_schedule_from_profile(profile: dict, busy_blocks: List[TimeBlock]) 
             "status": "generated",
             "user_goal": profile["goal"],
             "notes": "AI-generated plan based on constraints and preferences.",
-            "items": items,
+            "items": daily_routine,
         },
         "validation": validation,
         "feasible": validation["feasible"],
     }
 
 
+def get_latest_schedule(db: Session) -> Optional[Schedule]:
+    return db.query(Schedule).order_by(Schedule.created_at.desc()).first()
+
+
+def compute_dashboard_stats(schedule: Optional[Schedule], items: List[ScheduleItem]) -> Dict[str, Any]:
+    total_minutes = sum(item.duration_minutes for item in items)
+    completed_count = sum(1 for item in items if item.completed)
+    remaining_count = max(len(items) - completed_count, 0)
+    break_minutes = sum(
+        item.duration_minutes for item in items if item.category.lower() in {"break", "recovery", "relaxation", "rest"}
+    )
+    progress_pct = round((completed_count / len(items) * 100), 1) if items else 0.0
+    return {
+        "total_minutes": total_minutes,
+        "completed_count": completed_count,
+        "remaining_count": remaining_count,
+        "break_minutes": break_minutes,
+        "progress_pct": progress_pct,
+        "activity_count": len(items),
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html", context={})
 
 
 @app.get("/api/health", response_model=HealthResponse)
-async def health_check():
-    return {"status": "ok", "message": "FitPilot API is running."}
+async def health_check() -> HealthResponse:
+    return HealthResponse(status="ok", message="FitPilot API is running.")
 
 
 @app.get("/api/preferences")
 async def get_preferences_api(db: Session = Depends(get_db)):
     pref = get_or_create_preference(db)
-    return {
-        "user_name": pref.user_name,
-        "goal": pref.goal,
-        "preferred_activity": pref.preferred_activity,
-        "experience": pref.experience,
-        "wake_time": pref.wake_time,
-        "sleep_time": pref.sleep_time,
-        "work_start": pref.work_start,
-        "work_end": pref.work_end,
-        "study_duration": pref.study_duration,
-        "break_duration": pref.break_duration,
-        "available_minutes": pref.available_minutes,
-        "target_duration": pref.target_duration,
-        "activity_duration": pref.activity_duration,
-        "productivity_goal": pref.productivity_goal,
-        "priorities": pref.priorities,
-    }
+    return serialize_preference(pref)
 
 
 @app.put("/api/preferences")
 async def save_preferences(payload: PreferenceUpdate, db: Session = Depends(get_db)):
     pref = get_or_create_preference(db)
-    for field, value in payload.model_dump().items():
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        if field == "preferred_activities" and isinstance(value, list):
+            setattr(pref, field, ", ".join(str(item).strip() for item in value if str(item).strip()))
+            continue
+        if field == "preferred_activity" and value is not None:
+            pref.preferred_activity = str(value)
+            continue
         setattr(pref, field, value)
     db.commit()
     db.refresh(pref)
-    preferences = await get_preferences_api(db)
-    return {"message": "Preferences saved successfully.", "preferences": preferences}
+    return {"message": "Preferences saved successfully.", "preferences": serialize_preference(pref)}
 
 
 @app.post("/api/schedules/generate")
-async def generate_schedule(payload: dict, db: Session = Depends(get_db)):
+async def generate_schedule(payload: Dict[str, Any], db: Session = Depends(get_db)):
     try:
         profile = normalize_profile_payload(payload)
         busy_blocks = build_busy_blocks(payload)
         result = generate_schedule_from_profile(profile, busy_blocks)
+
         if not result["feasible"] and not result["schedule"]["items"]:
-            raise HTTPException(status_code=400, detail="No feasible schedule could be generated for the provided constraints.")
+            raise HTTPException(
+                status_code=400,
+                detail="No feasible schedule could be generated for the provided constraints.",
+            )
+
+        plan = AGENT.plan(profile, busy_blocks)
+        routine = build_daily_routine(profile, plan, busy_blocks)
+        generated_items = routine if routine else result["schedule"]["items"]
 
         schedule_record = Schedule(
             title=f"{profile['goal']} plan",
             date=profile["day"],
-            total_minutes=result["validation"]["total_minutes"],
+            total_minutes=sum(item["duration_minutes"] for item in generated_items),
             status="generated",
             user_goal=profile["goal"],
-            notes="AI-generated schedule based on user preferences and constraints.",
+            notes="AI-generated daily routine based on preferences, time window, and work constraints.",
         )
         db.add(schedule_record)
         db.commit()
         db.refresh(schedule_record)
 
-        for item in result["schedule"]["items"]:
+        for item in generated_items:
             db.add(
                 ScheduleItem(
                     schedule_id=schedule_record.id,
@@ -260,11 +331,12 @@ async def generate_schedule(payload: dict, db: Session = Depends(get_db)):
         db.commit()
 
         items = db.query(ScheduleItem).filter(ScheduleItem.schedule_id == schedule_record.id).all()
+        explanation = grounded_explanation(profile, plan, KB["activities"])
         return {
             "message": "Schedule generated successfully.",
             "schedule": schedule_to_dict(schedule_record, items),
             "validation": result["validation"],
-            "explanation": grounded_explanation(profile, AGENT.plan(profile, busy_blocks), KB["activities"]),
+            "explanation": explanation,
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -333,8 +405,13 @@ async def delete_schedule(schedule_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/activities")
 async def create_activity(payload: ActivityCreate, db: Session = Depends(get_db)):
+    schedule_id = getattr(payload, "schedule_id", None)
+    if schedule_id is None:
+        latest = get_latest_schedule(db)
+        schedule_id = latest.id if latest else 1
+
     item = ScheduleItem(
-        schedule_id=getattr(payload, "schedule_id", 1),
+        schedule_id=schedule_id,
         activity_name=payload.name,
         category=payload.category,
         start_time=payload.start_time,
@@ -342,6 +419,7 @@ async def create_activity(payload: ActivityCreate, db: Session = Depends(get_db)
         duration_minutes=payload.duration_minutes,
         reason=payload.reason,
         completed=payload.completed,
+        status="completed" if payload.completed else "planned",
     )
     db.add(item)
     db.commit()
@@ -350,7 +428,7 @@ async def create_activity(payload: ActivityCreate, db: Session = Depends(get_db)
 
 
 @app.put("/api/activities/{activity_id}")
-async def update_activity(activity_id: int, payload: dict, db: Session = Depends(get_db)):
+async def update_activity(activity_id: int, payload: Dict[str, Any], db: Session = Depends(get_db)):
     item = db.query(ScheduleItem).filter(ScheduleItem.id == activity_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Activity not found.")
@@ -380,15 +458,21 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     schedule = None
     if payload.schedule_id:
         schedule = db.query(Schedule).filter(Schedule.id == payload.schedule_id).first()
-    schedule_payload = {}
+
+    schedule_payload: Dict[str, Any] = {}
     if schedule:
         items = db.query(ScheduleItem).filter(ScheduleItem.schedule_id == schedule.id).all()
-        schedule_payload = {"title": schedule.title, "status": schedule.status, "items": [schedule_item_to_dict(item) for item in items]}
+        schedule_payload = {
+            "title": schedule.title,
+            "status": schedule.status,
+            "items": [schedule_item_to_dict(item) for item in items],
+        }
 
     profile = {
         "user_name": pref.user_name,
         "goal": pref.goal,
         "preferred_activity": pref.preferred_activity,
+        "preferred_activities": parse_list_field(pref.preferred_activities or pref.preferred_activity),
         "experience": pref.experience,
         "wake_time": pref.wake_time,
         "sleep_time": pref.sleep_time,
@@ -396,22 +480,56 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
         "work_end": pref.work_end,
         "schedule": schedule_payload,
     }
+
     answer = answer_fitness_question(question, KB, profile)
     db.add(ChatMessage(role="user", content=question, schedule_id=payload.schedule_id))
     db.add(ChatMessage(role="assistant", content=answer, schedule_id=payload.schedule_id))
     db.commit()
-    return {"answer": answer, "provider": "openai" if os.getenv("OPENAI_API_KEY") else "grounded-fallback"}
+    return ChatResponse(
+        answer=answer,
+        provider="openai" if os.getenv("OPENAI_API_KEY") else "grounded-fallback",
+    )
 
 
 @app.get("/api/ai/paradigms")
 async def ai_paradigms():
     return {
         "paradigms": [
-            {"name": "Rule-based AI", "how_it_works": "Explicit business and scheduling rules are applied deterministically.", "advantages": ["Explainable", "Reliable"], "limitations": ["Needs domain rules"], "example": "Constraint checking for time windows and busy blocks."},
-            {"name": "Search-based planning", "how_it_works": "The system searches for feasible time windows and validates overlaps.", "advantages": ["Respects hard constraints", "Efficient for modest schedules"], "limitations": ["Complexity increases with many constraints"], "example": "Find available blocks and rank activities."},
-            {"name": "Machine learning", "how_it_works": "Models can learn user preference patterns over time.", "advantages": ["Personalization", "Adaptive recommendations"], "limitations": ["Needs data and monitoring"], "example": "Preference tuning from historical completions."},
-            {"name": "Large language models", "how_it_works": "LLMs convert conversational requests into explanations and recommendations.", "advantages": ["Natural language", "Helpful follow-ups"], "limitations": ["Can hallucinate without grounding"], "example": "Answering schedule questions and productivity guidance."},
-            {"name": "Hybrid AI", "how_it_works": "The planner uses explicit rules while the LLM offers grounded explanations and conversational assistance.", "advantages": ["Balanced control and flexibility"], "limitations": ["More system complexity"], "example": "Schedule generation plus chatbot guidance."},
+            {
+                "name": "Rule-based AI",
+                "how_it_works": "Explicit business and scheduling rules are applied deterministically.",
+                "advantages": ["Explainable", "Reliable"],
+                "limitations": ["Needs domain rules"],
+                "example": "Constraint checking for time windows and busy blocks.",
+            },
+            {
+                "name": "Search-based planning",
+                "how_it_works": "The system searches for feasible time windows and validates overlaps.",
+                "advantages": ["Respects hard constraints", "Efficient for modest schedules"],
+                "limitations": ["Complexity increases with many constraints"],
+                "example": "Find available blocks and rank activities.",
+            },
+            {
+                "name": "Machine learning",
+                "how_it_works": "Models can learn user preference patterns over time.",
+                "advantages": ["Personalization", "Adaptive recommendations"],
+                "limitations": ["Needs data and monitoring"],
+                "example": "Preference tuning from historical completions.",
+            },
+            {
+                "name": "Large language models",
+                "how_it_works": "LLMs convert conversational requests into explanations and recommendations.",
+                "advantages": ["Natural language", "Helpful follow-ups"],
+                "limitations": ["Can hallucinate without grounding"],
+                "example": "Answering schedule questions and productivity guidance.",
+            },
+            {
+                "name": "Hybrid AI",
+                "how_it_works": "The planner uses explicit rules while the LLM offers grounded explanations and conversational assistance.",
+                "advantages": ["Balanced control and flexibility"],
+                "limitations": ["More system complexity"],
+                "example": "Schedule generation plus chatbot guidance.",
+            },
         ]
     }
 
@@ -422,11 +540,191 @@ async def knowledge_base():
 
 
 @app.get("/api/health-check")
-async def health_check_alias():
-    return {"status": "ok"}
+async def health_check_alias() -> Dict[str, str]:
+    return {"status": "ok", "message": "FitPilot API is running."}
 
 
-if __name__ == "__main__":
-    import uvicorn
+@app.get("/api/dashboard")
+async def dashboard_data(db: Session = Depends(get_db)):
+    pref = get_or_create_preference(db)
+    schedule = get_latest_schedule(db)
+    items = db.query(ScheduleItem).filter(ScheduleItem.schedule_id == schedule.id).all() if schedule else []
+    stats = compute_dashboard_stats(schedule, items)
+    return {
+        "preferences": serialize_preference(pref),
+        "schedule": schedule_to_dict(schedule, items) if schedule else None,
+        "stats": stats,
+    }
 
-    uvicorn.run("app:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)), reload=True)
+
+@app.patch("/api/schedule-items/{item_id}/complete")
+async def mark_activity_complete(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(ScheduleItem).filter(ScheduleItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Activity not found.")
+    item.completed = True
+    item.status = "completed"
+    db.commit()
+    return {"message": "Activity marked as completed.", "item": schedule_item_to_dict(item)}
+
+
+@app.patch("/api/schedule-items/{item_id}/skip")
+async def mark_activity_skipped(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(ScheduleItem).filter(ScheduleItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Activity not found.")
+    item.completed = False
+    item.status = "skipped"
+    db.commit()
+    return {"message": "Activity marked as skipped.", "item": schedule_item_to_dict(item)}
+
+
+@app.put("/api/schedule-items/{item_id}")
+async def update_schedule_item(item_id: int, payload: Dict[str, Any], db: Session = Depends(get_db)):
+    item = db.query(ScheduleItem).filter(ScheduleItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Activity not found.")
+    for key, value in payload.items():
+        if hasattr(item, key):
+            setattr(item, key, value)
+    if payload.get("completed") is not None:
+        item.status = "completed" if payload["completed"] else "planned"
+    db.commit()
+    return {"message": "Activity updated successfully.", "item": schedule_item_to_dict(item)}
+
+
+@app.delete("/api/schedule-items/{item_id}")
+async def delete_schedule_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(ScheduleItem).filter(ScheduleItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Activity not found.")
+    db.delete(item)
+    db.commit()
+    return {"message": "Activity deleted successfully."}
+
+
+def to_minutes(value: str) -> int:
+    if not value:
+        return 0
+    try:
+        hour, minute = value.split(":")
+        return int(hour) * 60 + int(minute)
+    except ValueError:
+        return 0
+
+
+def add_time_slot(items: List[Dict[str, Any]], start: str, end: str, name: str, category: str, reason: str) -> None:
+    start_min = to_minutes(start)
+    end_min = to_minutes(end)
+    if start_min >= end_min:
+        return
+    items.append(
+        {
+            "activity_name": name,
+            "category": category,
+            "start_time": start,
+            "end_time": end,
+            "duration_minutes": max(0, end_min - start_min),
+            "reason": reason,
+            "completed": False,
+            "status": "planned",
+        }
+    )
+
+
+def build_daily_routine(profile: Dict[str, Any], plan: List[Any], busy_blocks: List[TimeBlock]) -> List[Dict[str, Any]]:
+    wake = profile.get("day_start") or "07:00"
+    sleep = profile.get("day_end") or "23:00"
+    current_day = profile.get("day", date.today())
+    base_items: List[Dict[str, Any]] = []
+
+    add_time_slot(base_items, wake, "07:30", "Morning routine", "routine", "Wake up, hydrate, and ease into the day.")
+    add_time_slot(base_items, "07:30", "08:00", "Breakfast", "nutrition", "Light, nourishing breakfast to support focus and energy.")
+
+    for entry in plan:
+        base_items.append(
+            {
+                "activity_name": entry.activity_name,
+                "category": "activity",
+                "start_time": entry.start.strftime("%H:%M"),
+                "end_time": entry.end.strftime("%H:%M"),
+                "duration_minutes": entry.duration_minutes,
+                "reason": entry.reason,
+                "completed": False,
+                "status": "planned",
+            }
+        )
+
+    work_start = profile.get("work_start")
+    work_end = profile.get("work_end")
+    if work_start and work_end:
+        add_time_slot(base_items, work_start, work_end, "Work / study block", "focus", "Protected focus time for your job or study commitments.")
+
+    add_time_slot(base_items, "12:15", "13:00", "Lunch", "nutrition", "Lunch break and recovery time.")
+    add_time_slot(base_items, "15:00", "15:15", "Hydration break", "break", "Quick hydration and reset break.")
+    add_time_slot(base_items, "18:30", "19:15", "Dinner", "nutrition", "Evening meal and wind-down routine.")
+    add_time_slot(base_items, "19:30", "20:15", "Personal time", "recovery", "Unstructured time for rest, hobbies, or family.")
+    add_time_slot(base_items, "20:30", "21:00", "Evening relaxation", "recovery", "Low-stimulation wind-down to support restful sleep.")
+    add_time_slot(base_items, "21:00", sleep, "Sleep routine", "sleep", "Prepare for sleep and protect your overnight recovery.")
+
+    normalized: List[Dict[str, Any]] = []
+    seen = set()
+    for item in sorted(base_items, key=lambda x: (to_minutes(x["start_time"]), x["activity_name"])):
+        key = (item["activity_name"], item["start_time"], item["end_time"])
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(item)
+
+    for block in busy_blocks:
+        block_start = block.start.strftime("%H:%M")
+        block_end = block.end.strftime("%H:%M")
+        for item in normalized:
+            if item["start_time"] == block_start and item["end_time"] == block_end:
+                item["category"] = "busy"
+                item["reason"] = block.label
+
+    return normalized
+
+
+def generate_schedule_from_profile(profile: Dict[str, Any], busy_blocks: List[TimeBlock]) -> Dict[str, Any]:
+    day = profile["day"]
+    start_dt = make_datetime(day, profile["day_start"])
+    end_dt = make_datetime(day, profile["day_end"])
+    if end_dt <= start_dt:
+        raise ValueError("Planning window end must be later than the start.")
+
+    plan = AGENT.plan(profile, busy_blocks)
+    validation = AGENT.validate(plan, busy_blocks, int(profile["available_minutes"]))
+    if not plan:
+        return {"schedule": {"items": []}, "validation": validation, "feasible": False}
+
+    items = []
+    for entry in plan:
+        items.append(
+            {
+                "activity_name": entry.activity_name,
+                "category": "activity",
+                "start_time": entry.start.strftime("%H:%M"),
+                "end_time": entry.end.strftime("%H:%M"),
+                "duration_minutes": entry.duration_minutes,
+                "reason": entry.reason,
+                "completed": False,
+            }
+        )
+
+    daily_routine = build_daily_routine(profile, plan, busy_blocks)
+
+    return {
+        "schedule": {
+            "title": f"{profile['goal']} plan",
+            "date": day.isoformat(),
+            "total_minutes": validation["total_minutes"],
+            "status": "generated",
+            "user_goal": profile["goal"],
+            "notes": "AI-generated plan based on constraints and preferences.",
+            "items": daily_routine,
+        },
+        "validation": validation,
+        "feasible": validation["feasible"],
+    }
