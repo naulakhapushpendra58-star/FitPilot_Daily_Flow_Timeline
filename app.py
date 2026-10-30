@@ -30,6 +30,10 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
+# Ensure directories exist across local development and Render deployments.
+for directory in (STATIC_DIR, TEMPLATES_DIR):
+    directory.mkdir(parents=True, exist_ok=True)
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FitPilot – AI-Powered Personal Activity Planner", version="1.0.0")
@@ -40,7 +44,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+if STATIC_DIR.exists() and STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 KB = __import__("knowledge").load_knowledge_base()
