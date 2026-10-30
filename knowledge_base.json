@@ -1,10 +1,10 @@
 {
   "activities": [
     {
-      "id": "walk",
+      "id": "walking",
       "name": "Walking",
       "category": "cardio",
-      "min_minutes": 10,
+      "min_minutes": 15,
       "max_minutes": 60,
       "intensity": "low_to_moderate",
       "equipment": "none",
@@ -13,13 +13,60 @@
         "endurance",
         "stay_active"
       ],
-      "description": "A flexible outdoor or indoor movement activity."
+      "description": "A flexible outdoor or indoor movement activity.",
+      "default_duration": 30
     },
     {
-      "id": "mobility",
-      "name": "Gentle mobility and stretching",
+      "id": "running",
+      "name": "Running",
+      "category": "cardio",
+      "min_minutes": 20,
+      "max_minutes": 45,
+      "intensity": "moderate",
+      "equipment": "none_or_shoes",
+      "tags": [
+        "endurance",
+        "stay_active"
+      ],
+      "description": "A cardiovascular activity that tends to work best when time is available and intensity is comfortable.",
+      "default_duration": 30
+    },
+    {
+      "id": "cycling",
+      "name": "Cycling",
+      "category": "cardio",
+      "min_minutes": 20,
+      "max_minutes": 60,
+      "intensity": "low_to_moderate",
+      "equipment": "bicycle",
+      "tags": [
+        "endurance",
+        "stay_active"
+      ],
+      "description": "A cycling activity at a comfortable pace.",
+      "default_duration": 40
+    },
+    {
+      "id": "yoga",
+      "name": "Yoga",
       "category": "mobility",
-      "min_minutes": 5,
+      "min_minutes": 15,
+      "max_minutes": 45,
+      "intensity": "low",
+      "equipment": "mat_optional",
+      "tags": [
+        "flexibility",
+        "consistency",
+        "stay_active"
+      ],
+      "description": "A mobility and mindfulness activity focused on breath and body control.",
+      "default_duration": 25
+    },
+    {
+      "id": "stretching",
+      "name": "Stretching",
+      "category": "mobility",
+      "min_minutes": 10,
       "max_minutes": 30,
       "intensity": "low",
       "equipment": "none",
@@ -28,41 +75,60 @@
         "consistency",
         "stay_active"
       ],
-      "description": "A short movement and flexibility break."
+      "description": "A short movement and flexibility break.",
+      "default_duration": 15
     },
     {
-      "id": "cycling",
-      "name": "Leisurely cycling",
-      "category": "cardio",
-      "min_minutes": 10,
-      "max_minutes": 60,
-      "intensity": "low_to_moderate",
-      "equipment": "bicycle",
-      "tags": [
-        "endurance",
-        "stay_active"
-      ],
-      "description": "A cycling activity at a comfortable pace."
-    },
-    {
-      "id": "bodyweight",
-      "name": "Beginner bodyweight movement",
+      "id": "strength-training",
+      "name": "Strength Training",
       "category": "strength",
-      "min_minutes": 10,
-      "max_minutes": 30,
-      "intensity": "low_to_moderate",
-      "equipment": "optional_mat",
+      "min_minutes": 20,
+      "max_minutes": 50,
+      "intensity": "moderate",
+      "equipment": "weights_or_bodyweight",
       "tags": [
         "consistency",
         "stay_active"
       ],
-      "description": "Simple bodyweight movements with options to pause or reduce effort."
+      "description": "A focused strength block using bodyweight or equipment.",
+      "default_duration": 35
     },
     {
-      "id": "dance",
-      "name": "Recreational dancing",
-      "category": "cardio",
+      "id": "meditation",
+      "name": "Meditation",
+      "category": "recovery",
       "min_minutes": 10,
+      "max_minutes": 30,
+      "intensity": "low",
+      "equipment": "none",
+      "tags": [
+        "consistency",
+        "recovery",
+        "focus"
+      ],
+      "description": "A calm, low-effort recovery practice for focus and resetting.",
+      "default_duration": 20
+    },
+    {
+      "id": "swimming",
+      "name": "Swimming",
+      "category": "cardio",
+      "min_minutes": 20,
+      "max_minutes": 45,
+      "intensity": "moderate",
+      "equipment": "pool_access",
+      "tags": [
+        "endurance",
+        "stay_active"
+      ],
+      "description": "A cardio activity that can be excellent for endurance when accessible.",
+      "default_duration": 35
+    },
+    {
+      "id": "dancing",
+      "name": "Dancing",
+      "category": "cardio",
+      "min_minutes": 15,
       "max_minutes": 45,
       "intensity": "variable",
       "equipment": "none",
@@ -71,7 +137,85 @@
         "endurance",
         "stay_active"
       ],
-      "description": "Enjoyable movement to music at a self-selected pace."
+      "description": "Enjoyable movement to music at a self-selected pace.",
+      "default_duration": 30
+    },
+    {
+      "id": "pilates",
+      "name": "Pilates",
+      "category": "strength",
+      "min_minutes": 15,
+      "max_minutes": 40,
+      "intensity": "low_to_moderate",
+      "equipment": "mat_optional",
+      "tags": [
+        "consistency",
+        "flexibility",
+        "stay_active"
+      ],
+      "description": "A controlled movement practice that emphasizes posture and core strength.",
+      "default_duration": 25
+    },
+    {
+      "id": "outdoor-sports",
+      "name": "Outdoor Sports",
+      "category": "play",
+      "min_minutes": 20,
+      "max_minutes": 60,
+      "intensity": "moderate",
+      "equipment": "varies",
+      "tags": [
+        "endurance",
+        "stay_active"
+      ],
+      "description": "A spontaneous or team-based recreational activity that fits active free time.",
+      "default_duration": 40
+    },
+    {
+      "id": "indoor-workout",
+      "name": "Indoor Workout",
+      "category": "strength",
+      "min_minutes": 15,
+      "max_minutes": 50,
+      "intensity": "moderate",
+      "equipment": "optional",
+      "tags": [
+        "consistency",
+        "stay_active"
+      ],
+      "description": "A flexible indoor movement block that can be adapted to the user's home or gym environment.",
+      "default_duration": 30
+    },
+    {
+      "id": "breathing-exercises",
+      "name": "Breathing Exercises",
+      "category": "recovery",
+      "min_minutes": 5,
+      "max_minutes": 20,
+      "intensity": "low",
+      "equipment": "none",
+      "tags": [
+        "recovery",
+        "focus"
+      ],
+      "description": "Calming, low-intensity breathing exercises for recovery and focus",
+      "default_duration": 10
+    },
+    {
+      "id": "mobility-exercises",
+      "name": "Mobility Exercises",
+      "category": "mobility",
+      "min_minutes": 10,
+      "max_minutes": 30,
+      "intensity": "low",
+      "equipment": "none",
+      "tags": [
+        "flexibility",
+        "consistency",
+        "stay_active"
+      ],
+      "description": "Short movement drills to improve comfort and joint range of motion.",
+      "default_duration": 15
     }
   ],
   "rules": [
@@ -99,6 +243,16 @@
       "id": "R5",
       "name": "Grounded explanation",
       "statement": "The language model may explain only facts supplied by the activity library and validated plan."
+    },
+    {
+      "id": "R6",
+      "name": "Multiple preferred activities",
+      "statement": "The planner may choose a feasible subset of the user's selected activities and leave the rest unscheduled if they do not fit the available time or busy windows."
+    },
+    {
+      "id": "R7",
+      "name": "Unique activity preference",
+      "statement": "The planner should avoid repeating the same activity unnecessarily in a single day unless the user explicitly asks for repetition or the schedule requires it."
     }
   ]
 }
