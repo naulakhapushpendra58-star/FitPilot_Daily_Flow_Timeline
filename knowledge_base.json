@@ -1,0 +1,104 @@
+{
+  "activities": [
+    {
+      "id": "walk",
+      "name": "Walking",
+      "category": "cardio",
+      "min_minutes": 10,
+      "max_minutes": 60,
+      "intensity": "low_to_moderate",
+      "equipment": "none",
+      "tags": [
+        "consistency",
+        "endurance",
+        "stay_active"
+      ],
+      "description": "A flexible outdoor or indoor movement activity."
+    },
+    {
+      "id": "mobility",
+      "name": "Gentle mobility and stretching",
+      "category": "mobility",
+      "min_minutes": 5,
+      "max_minutes": 30,
+      "intensity": "low",
+      "equipment": "none",
+      "tags": [
+        "flexibility",
+        "consistency",
+        "stay_active"
+      ],
+      "description": "A short movement and flexibility break."
+    },
+    {
+      "id": "cycling",
+      "name": "Leisurely cycling",
+      "category": "cardio",
+      "min_minutes": 10,
+      "max_minutes": 60,
+      "intensity": "low_to_moderate",
+      "equipment": "bicycle",
+      "tags": [
+        "endurance",
+        "stay_active"
+      ],
+      "description": "A cycling activity at a comfortable pace."
+    },
+    {
+      "id": "bodyweight",
+      "name": "Beginner bodyweight movement",
+      "category": "strength",
+      "min_minutes": 10,
+      "max_minutes": 30,
+      "intensity": "low_to_moderate",
+      "equipment": "optional_mat",
+      "tags": [
+        "consistency",
+        "stay_active"
+      ],
+      "description": "Simple bodyweight movements with options to pause or reduce effort."
+    },
+    {
+      "id": "dance",
+      "name": "Recreational dancing",
+      "category": "cardio",
+      "min_minutes": 10,
+      "max_minutes": 45,
+      "intensity": "variable",
+      "equipment": "none",
+      "tags": [
+        "consistency",
+        "endurance",
+        "stay_active"
+      ],
+      "description": "Enjoyable movement to music at a self-selected pace."
+    }
+  ],
+  "rules": [
+    {
+      "id": "R1",
+      "name": "Time budget",
+      "statement": "Planned activity duration must not exceed the user's available minutes."
+    },
+    {
+      "id": "R2",
+      "name": "No schedule overlap",
+      "statement": "An activity must fit completely inside a free time window and cannot overlap a busy block."
+    },
+    {
+      "id": "R3",
+      "name": "Preference ranking",
+      "statement": "Prefer activities selected by the user or tagged for their stated goal."
+    },
+    {
+      "id": "R4",
+      "name": "Non-clinical scope",
+      "statement": "The system provides general activity planning, not diagnosis or treatment."
+    },
+    {
+      "id": "R5",
+      "name": "Grounded explanation",
+      "statement": "The language model may explain only facts supplied by the activity library and validated plan."
+    }
+  ]
+}
