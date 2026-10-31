@@ -35,6 +35,10 @@ class ApiTests(unittest.TestCase):
         self.assertIn("schedule", body)
         self.assertGreater(len(body["schedule"]["items"]), 0)
 
+    def test_static_endpoint(self):
+        response = self.client.get("/static/.gitkeep")
+        self.assertEqual(response.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()
