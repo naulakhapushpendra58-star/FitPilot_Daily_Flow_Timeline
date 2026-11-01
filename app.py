@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from ai_providers import generate_chat_completion
 from database import Base, SessionLocal, engine
 from fitness_chatbot import RECOMMENDED_QUESTIONS, answer_fitness_question
 from llm_grounding import grounded_explanation
@@ -391,16 +392,18 @@ def get_latest_schedule(db: Session) -> Optional[Schedule]:
 
 def compute_dashboard_stats(schedule: Optional[Schedule], items: List[ScheduleItem]) -> Dict[str, Any]:
     total_minutes = sum(item.duration_minutes for item in items)
-    completed_count = sum(1 for item in items if item.completed)
-    remaining_count = max(len(items) - completed_count, 0)
+    completed_count = sum(1 for item in items if item.completed or item.status == "completed")
+    skipped_count = sum(1 for item in items if item.status == "skipped")
+    pending_count = max(len(items) - completed_count - skipped_count, 0)
     break_minutes = sum(
-        item.duration_minutes for item in items if item.category.lower() in {"break", "recovery", "relaxation", "rest"}
+        item.duration_minutes for item in items if (item.category or "").lower() in {"break", "recovery", "relaxation", "rest"}
     )
     progress_pct = round((completed_count / len(items) * 100), 1) if items else 0.0
     return {
         "total_minutes": total_minutes,
         "completed_count": completed_count,
-        "remaining_count": remaining_count,
+        "skipped_count": skipped_count,
+        "pending_count": pending_count,
         "break_minutes": break_minutes,
         "progress_pct": progress_pct,
         "activity_count": len(items),
@@ -468,7 +471,9 @@ async def generate_schedule(payload: Dict[str, Any], db: Session = Depends(get_d
 
         plan = AGENT.plan(profile, busy_blocks)
         routine = build_daily_routine(profile, plan, busy_blocks)
-        generated_items = routine if routine else result["schedule"]["items"]
+        generated_items = merge_generated_schedule(payload, routine)
+        if not generated_items:
+            generated_items = merge_generated_schedule(payload, result["schedule"]["items"])
 
         schedule_record = Schedule(
             title=f"{profile['goal']} plan",
@@ -493,6 +498,7 @@ async def generate_schedule(payload: Dict[str, Any], db: Session = Depends(get_d
                     duration_minutes=item["duration_minutes"],
                     reason=item["reason"],
                     completed=item.get("completed", False),
+                    status=item.get("status", "planned"),
                 )
             )
         db.commit()
@@ -621,10 +627,15 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     if not question:
         raise HTTPException(status_code=400, detail="Question is required.")
 
+    provider = (payload.provider or "openai").lower()
+    if provider not in {"openai", "gemini"}:
+        raise HTTPException(status_code=400, detail="Unsupported AI provider selected.")
+
     pref = get_or_create_preference(db)
     schedule = None
-    if payload.schedule_id:
-        schedule = db.query(Schedule).filter(Schedule.id == payload.schedule_id).first()
+    schedule_id = payload.schedule_id
+    if schedule_id:
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
 
     schedule_payload: Dict[str, Any] = {}
     if schedule:
@@ -648,55 +659,57 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
         "schedule": schedule_payload,
     }
 
-    answer = answer_fitness_question(question, KB, profile)
-    db.add(ChatMessage(role="user", content=question, schedule_id=payload.schedule_id))
-    db.add(ChatMessage(role="assistant", content=answer, schedule_id=payload.schedule_id))
+    history = get_chat_history(db, schedule_id)
+
+    try:
+        answer = generate_chat_completion(
+            question,
+            profile,
+            KB.get("activities", []),
+            provider=provider,
+            history=history,
+        )
+    except Exception as exc:
+        fallback = answer_fitness_question(question, KB, profile)
+        answer = f"AI provider unavailable ({provider}): {str(exc)}. Using local FitPilot guidance instead: {fallback}"
+        provider = "grounded-fallback"
+
+    db.add(ChatMessage(role="user", content=question, schedule_id=schedule_id))
+    db.add(ChatMessage(role="assistant", content=answer, schedule_id=schedule_id))
     db.commit()
-    return ChatResponse(
-        answer=answer,
-        provider="openai" if os.getenv("OPENAI_API_KEY") else "grounded-fallback",
-    )
+    return ChatResponse(answer=answer, provider=provider)
 
 
-@app.get("/api/ai/paradigms")
-async def ai_paradigms():
+def get_chat_history(db: Session, schedule_id: Optional[int] = None) -> List[Dict[str, str]]:
+    query = db.query(ChatMessage).order_by(ChatMessage.created_at.asc())
+    if schedule_id is not None:
+        query = query.filter(ChatMessage.schedule_id == schedule_id)
+    history = query.all()
+    return [{"role": item.role, "content": item.content} for item in history]
+
+
+@app.get("/api/chat/history")
+async def get_chat_history_api(schedule_id: Optional[int] = None, db: Session = Depends(get_db)):
+    records = get_chat_history(db, schedule_id)
+    return {"messages": records}
+
+
+@app.delete("/api/chat")
+async def delete_chat_history(schedule_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(ChatMessage)
+    if schedule_id is not None:
+        query = query.filter(ChatMessage.schedule_id == schedule_id)
+    deleted = query.delete(synchronize_session=False)
+    db.commit()
+    return {"message": "Chat history cleared successfully.", "deleted": deleted}
+
+
+@app.get("/api/chat/providers")
+async def available_providers():
     return {
-        "paradigms": [
-            {
-                "name": "Rule-based AI",
-                "how_it_works": "Explicit business and scheduling rules are applied deterministically.",
-                "advantages": ["Explainable", "Reliable"],
-                "limitations": ["Needs domain rules"],
-                "example": "Constraint checking for time windows and busy blocks.",
-            },
-            {
-                "name": "Search-based planning",
-                "how_it_works": "The system searches for feasible time windows and validates overlaps.",
-                "advantages": ["Respects hard constraints", "Efficient for modest schedules"],
-                "limitations": ["Complexity increases with many constraints"],
-                "example": "Find available blocks and rank activities.",
-            },
-            {
-                "name": "Machine learning",
-                "how_it_works": "Models can learn user preference patterns over time.",
-                "advantages": ["Personalization", "Adaptive recommendations"],
-                "limitations": ["Needs data and monitoring"],
-                "example": "Preference tuning from historical completions.",
-            },
-            {
-                "name": "Large language models",
-                "how_it_works": "LLMs convert conversational requests into explanations and recommendations.",
-                "advantages": ["Natural language", "Helpful follow-ups"],
-                "limitations": ["Can hallucinate without grounding"],
-                "example": "Answering schedule questions and productivity guidance.",
-            },
-            {
-                "name": "Hybrid AI",
-                "how_it_works": "The planner uses explicit rules while the LLM offers grounded explanations and conversational assistance.",
-                "advantages": ["Balanced control and flexibility"],
-                "limitations": ["More system complexity"],
-                "example": "Schedule generation plus chatbot guidance.",
-            },
+        "providers": [
+            {"id": "openai", "name": "OpenAI", "configured": bool(os.getenv("OPENAI_API_KEY"))},
+            {"id": "gemini", "name": "Google Gemini", "configured": bool(os.getenv("GEMINI_API_KEY"))},
         ]
     }
 
@@ -845,3 +858,80 @@ def build_daily_routine(profile: Dict[str, Any], plan: List[Any], busy_blocks: L
         )
 
     return dedupe_and_sort_items(base_items)
+
+
+def normalize_custom_activity(item: Dict[str, Any], wake_time: Optional[str] = None, sleep_time: Optional[str] = None) -> Dict[str, Any]:
+    if not isinstance(item, dict):
+        raise ValueError("Each custom activity must be an object.")
+
+    name = str(item.get("activity_name") or item.get("name") or "").strip()
+    if not name:
+        raise ValueError("Every custom activity requires a name.")
+
+    category = str(item.get("category") or "activity").strip() or "activity"
+    description = str(item.get("description") or item.get("reason") or "").strip()
+    start_time = item.get("start_time")
+    end_time = item.get("end_time")
+    duration_minutes = int(item.get("duration_minutes") or item.get("duration") or 0)
+
+    if start_time and not _is_valid_time(start_time):
+        raise ValueError(f"Custom activity '{name}' has an invalid start time.")
+    if end_time and not _is_valid_time(end_time):
+        raise ValueError(f"Custom activity '{name}' has an invalid end time.")
+
+    if start_time and end_time:
+        if _to_minutes(end_time) <= _to_minutes(start_time):
+            raise ValueError(f"Custom activity '{name}' must end after it starts.")
+        end_minutes = _to_minutes(end_time)
+        start_minutes = _to_minutes(start_time)
+        duration = max(0, end_minutes - start_minutes)
+    elif start_time and duration_minutes > 0:
+        start_minutes = _to_minutes(start_time)
+        duration = duration_minutes
+        end_time = _minutes_to_time(start_minutes + duration)
+    else:
+        raise ValueError(f"Custom activity '{name}' must include a start time and end time or duration.")
+
+    if wake_time and _to_minutes(start_time) < _to_minutes(wake_time):
+        raise ValueError(f"Custom activity '{name}' cannot start before the wake-up time.")
+    if sleep_time and _to_minutes(end_time) > _to_minutes(sleep_time):
+        raise ValueError(f"Custom activity '{name}' cannot extend past the sleep time.")
+
+    return {
+        "activity_name": name,
+        "category": category,
+        "start_time": start_time,
+        "end_time": end_time,
+        "duration_minutes": duration,
+        "reason": description,
+        "completed": False,
+        "status": "planned",
+    }
+
+
+def normalize_custom_activities(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    raw_items = payload.get("custom_activities") or payload.get("routine_activities") or []
+    if isinstance(raw_items, dict):
+        raw_items = [raw_items]
+    wake_time = payload.get("wake_time") or "07:00"
+    sleep_time = payload.get("sleep_time") or "23:00"
+    return [normalize_custom_activity(item, wake_time, sleep_time) for item in raw_items if item]
+
+
+def sort_and_validate_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    sorted_items = sorted(items, key=lambda item: (_to_minutes(item.get("start_time") or "00:00"), item.get("activity_name", "")))
+    for previous, current in zip(sorted_items, sorted_items[1:]):
+        previous_end = _to_minutes(previous.get("end_time") or previous.get("start_time") or "00:00")
+        current_start = _to_minutes(current.get("start_time") or "00:00")
+        if previous_end > current_start:
+            raise ValueError(f"Activity overlap detected between '{previous.get('activity_name')}' and '{current.get('activity_name')}'.")
+    return sorted_items
+
+
+def merge_generated_schedule(payload: Dict[str, Any], generated_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    custom_items = normalize_custom_activities(payload)
+    merged = list(generated_items) + custom_items
+    if not merged:
+        return []
+    final_items = sort_and_validate_items(merged)
+    return final_items
