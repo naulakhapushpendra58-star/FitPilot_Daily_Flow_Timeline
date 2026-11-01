@@ -106,6 +106,297 @@
       .view-section { display: none; }
       .view-section.active { display: block; }
       .nav-item.active, .mobile-nav button.active { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.32); color: white; }
+
+      .build-form { display: flex; flex-direction: column; gap: 22px; }
+      .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+      .field-wrap, .build-form > div:not(.inline-actions):not(.row):not(.section-title) { display: flex; flex-direction: column; gap: 10px; }
+      .build-form label, .subtle {
+        color: var(--muted);
+        font-size: 0.8rem;
+        letter-spacing: 0.02em;
+      }
+      .build-form input,
+      .build-form select,
+      .build-form textarea,
+      #chatInput,
+      #providerSelect,
+      #dateSelector,
+      #goal,
+      #experience,
+      #wake_time,
+      #sleep_time,
+      #lunch_time,
+      #work_start,
+      #work_end,
+      #available_minutes,
+      #target_duration,
+      #break_duration,
+      #study_duration {
+        width: 100%;
+        min-height: 48px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: rgba(15,23,42,0.82);
+        color: var(--text);
+        padding: 12px 14px;
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .build-form input::placeholder,
+      #chatInput::placeholder {
+        color: rgba(165, 180, 207, 0.8);
+      }
+      .build-form input:hover,
+      .build-form select:hover,
+      .build-form textarea:hover,
+      #chatInput:hover,
+      #providerSelect:hover,
+      #dateSelector:hover,
+      #goal:hover,
+      #experience:hover,
+      #wake_time:hover,
+      #sleep_time:hover,
+      #lunch_time:hover,
+      #work_start:hover,
+      #work_end:hover,
+      #available_minutes:hover,
+      #target_duration:hover,
+      #break_duration:hover,
+      #study_duration:hover {
+        border-color: rgba(139,92,246,0.42);
+      }
+      .build-form input:focus,
+      .build-form select:focus,
+      .build-form textarea:focus,
+      #chatInput:focus,
+      #providerSelect:focus,
+      #dateSelector:focus,
+      #goal:focus,
+      #experience:focus,
+      #wake_time:focus,
+      #sleep_time:focus,
+      #lunch_time:focus,
+      #work_start:focus,
+      #work_end:focus,
+      #available_minutes:focus,
+      #target_duration:focus,
+      #break_duration:focus,
+      #study_duration:focus {
+        border-color: rgba(96, 165, 250, 0.7);
+        box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.12);
+        background: rgba(17,24,39,0.96);
+      }
+      .build-form input[type="time"],
+      .build-form input[type="date"],
+      #dateSelector,
+      #wake_time,
+      #sleep_time,
+      #lunch_time,
+      #work_start,
+      #work_end {
+        color-scheme: dark;
+      }
+      .build-form input[type="time"]::-webkit-calendar-picker-indicator,
+      .build-form input[type="date"]::-webkit-calendar-picker-indicator,
+      #dateSelector::-webkit-calendar-picker-indicator {
+        filter: invert(1) brightness(1.2);
+        opacity: 0.8;
+        cursor: pointer;
+      }
+      .build-form select,
+      #providerSelect,
+      #dateSelector,
+      #goal,
+      #experience {
+        background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+        background-position: calc(100% - 18px) calc(50% - 2px), calc(100% - 12px) calc(50% - 2px);
+        background-size: 6px 6px, 6px 6px;
+        background-repeat: no-repeat;
+        padding-right: 38px;
+      }
+      .build-form input[type="number"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+      .build-form input[type="number"]::-webkit-outer-spin-button,
+      .build-form input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .build-form input[type="checkbox"],
+      #preferredActivities input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        min-height: 16px;
+        border-radius: 6px;
+        border: 1px solid rgba(148,163,184,0.5);
+        background: rgba(15,23,42,0.9);
+        position: relative;
+        cursor: pointer;
+        margin: 0;
+      }
+      .build-form input[type="checkbox"]:checked,
+      #preferredActivities input[type="checkbox"]:checked {
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        border-color: rgba(139,92,246,0.9);
+      }
+      .build-form input[type="checkbox"]:checked::after,
+      #preferredActivities input[type="checkbox"]:checked::after {
+        content: "";
+        position: absolute;
+        left: 5px;
+        top: 2px;
+        width: 4px;
+        height: 8px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+      .checkbox-grid label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(15,23,42,0.65);
+        border: 1px solid transparent;
+        color: var(--text);
+        cursor: pointer;
+        transition: 0.2s ease;
+      }
+      .checkbox-grid label:hover {
+        border-color: rgba(139,92,246,0.35);
+        background: rgba(139,92,246,0.08);
+      }
+      .checkbox-grid label:has(input:checked) {
+        background: rgba(139,92,246,0.18);
+        border-color: rgba(139,92,246,0.45);
+        box-shadow: inset 0 0 0 1px rgba(96,165,250,0.2);
+      }
+      .checkbox-grid label span {
+        pointer-events: none;
+      }
+      .question-list .chip,
+      .chip {
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        border: 1px solid rgba(148,163,184,0.22);
+        background: rgba(15,23,42,0.75);
+        color: var(--text);
+        font-size: 0.76rem;
+        line-height: 1;
+        font-weight: 600;
+        transition: 0.2s ease;
+      }
+      .question-list .chip:hover,
+      .chip:hover {
+        border-color: rgba(139,92,246,0.44);
+        background: rgba(139,92,246,0.12);
+        transform: translateY(-1px);
+      }
+      .chat-window .btn,
+      .build-form .btn,
+      .btn {
+        border: none;
+        border-radius: 12px;
+        padding: 11px 16px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: 0.2s ease, transform 0.2s ease;
+      }
+      .btn.primary {
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+        color: white;
+        box-shadow: 0 10px 25px rgba(139,92,246,0.35);
+      }
+      .btn.primary:hover,
+      .btn.secondary:hover,
+      .btn.ghost:hover,
+      .btn.danger:hover {
+        transform: translateY(-1px);
+      }
+      .btn.secondary {
+        background: rgba(15,23,42,0.7);
+        border: 1px solid var(--border);
+        color: white;
+      }
+      .btn.ghost {
+        background: rgba(148,163,184,0.08);
+        border: 1px solid var(--border);
+        color: white;
+      }
+      .btn.danger {
+        background: rgba(248,113,113,0.11);
+        border: 1px solid rgba(248,113,113,0.35);
+        color: #fecaca;
+      }
+      .chat-message {
+        max-width: 78%;
+        padding: 12px 14px;
+        border-radius: 16px;
+        line-height: 1.5;
+        font-size: 0.95rem;
+        word-break: break-word;
+      }
+      .chat-message.assistant {
+        align-self: flex-start;
+        background: rgba(15,23,42,0.9);
+        border: 1px solid rgba(148,163,184,0.18);
+        color: var(--text);
+      }
+      .chat-message.user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, rgba(139,92,246,0.24), rgba(56,189,248,0.2));
+        border: 1px solid rgba(139,92,246,0.35);
+        color: var(--text);
+      }
+      .question-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 4px;
+      }
+      .chat-window {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background: rgba(15,23,42,0.5);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        min-height: 500px;
+      }
+      #chatMessages {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 150px;
+        max-height: 300px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+      .chat-input-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      #chatInput {
+        flex: 1;
+      }
+      #sendChatBtn {
+        min-width: 116px;
+      }
+      #clearChatBtn {
+        margin-left: auto;
+      }
     </style>
   </head>
   <body>
@@ -256,19 +547,19 @@
                 <div class="multiselect-wrap" id="preferredActivitiesWrap">
                   <div class="selected-tags" id="selectedActivities"></div>
                   <div id="preferredActivities" class="checkbox-grid" aria-label="Preferred activities">
-                    <label><input type="checkbox" value="Walking" /> Walking</label>
-                    <label><input type="checkbox" value="Running" /> Running</label>
-                    <label><input type="checkbox" value="Cycling" /> Cycling</label>
-                    <label><input type="checkbox" value="Yoga" /> Yoga</label>
-                    <label><input type="checkbox" value="Stretching" /> Stretching</label>
-                    <label><input type="checkbox" value="Strength Training" /> Strength Training</label>
-                    <label><input type="checkbox" value="Meditation" /> Meditation</label>
-                    <label><input type="checkbox" value="Swimming" /> Swimming</label>
-                    <label><input type="checkbox" value="Dancing" /> Dancing</label>
-                    <label><input type="checkbox" value="Pilates" /> Pilates</label>
-                    <label><input type="checkbox" value="Outdoor Sports" /> Outdoor Sports</label>
-                    <label><input type="checkbox" value="Indoor Workout" /> Indoor Workout</label>
-                    <label><input type="checkbox" value="Mobility Exercises" /> Mobility Exercises</label>
+                    <label><input type="checkbox" value="Walking" /> <span>Walking</span></label>
+                    <label><input type="checkbox" value="Running" /> <span>Running</span></label>
+                    <label><input type="checkbox" value="Cycling" /> <span>Cycling</span></label>
+                    <label><input type="checkbox" value="Yoga" /> <span>Yoga</span></label>
+                    <label><input type="checkbox" value="Stretching" /> <span>Stretching</span></label>
+                    <label><input type="checkbox" value="Strength Training" /> <span>Strength Training</span></label>
+                    <label><input type="checkbox" value="Meditation" /> <span>Meditation</span></label>
+                    <label><input type="checkbox" value="Swimming" /> <span>Swimming</span></label>
+                    <label><input type="checkbox" value="Dancing" /> <span>Dancing</span></label>
+                    <label><input type="checkbox" value="Pilates" /> <span>Pilates</span></label>
+                    <label><input type="checkbox" value="Outdoor Sports" /> <span>Outdoor Sports</span></label>
+                    <label><input type="checkbox" value="Indoor Workout" /> <span>Indoor Workout</span></label>
+                    <label><input type="checkbox" value="Mobility Exercises" /> <span>Mobility Exercises</span></label>
                   </div>
                 </div>
               </div>
@@ -310,7 +601,7 @@
               <div class="chat-message assistant">Hi! I can help explain your plan, suggest better balance, and answer questions about your routine.</div>
               <div id="chatMessages"></div>
               <div class="question-list" id="recommendedQuestions"></div>
-              <div style="display:flex; gap:10px; margin-top:auto;">
+              <div class="chat-input-row">
                 <input id="chatInput" type="text" placeholder="Ask about your plan..." />
                 <button class="btn primary" id="sendChatBtn" type="button">Send</button>
               </div>
@@ -423,6 +714,22 @@
         el.className = `chat-message ${role}`;
         el.textContent = text;
         chatMessages.appendChild(el);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function renderSelectedActivities() {
+        selectedActivitiesEl.innerHTML = '';
+        const selected = getSelectedActivities();
+        if (!selected.length) {
+          selectedActivitiesEl.innerHTML = '<span class="tag">No activities selected</span>';
+          return;
+        }
+        selected.forEach((value) => {
+          const tag = document.createElement('span');
+          tag.className = 'tag';
+          tag.textContent = value;
+          selectedActivitiesEl.appendChild(tag);
+        });
       }
 
       function renderRecommendedQuestions() {
@@ -438,25 +745,6 @@
             sendChat();
           });
           recommendedQuestions.appendChild(button);
-        });
-      }
-
-      function getSelectedActivities() {
-        return Array.from(preferredActivitiesSelect.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
-      }
-
-      function renderSelectedActivities() {
-        selectedActivitiesEl.innerHTML = '';
-        const selected = getSelectedActivities();
-        if (!selected.length) {
-          selectedActivitiesEl.innerHTML = '<span class="tag">No activities selected</span>';
-          return;
-        }
-        selected.forEach((value) => {
-          const tag = document.createElement('span');
-          tag.className = 'tag';
-          tag.textContent = value;
-          selectedActivitiesEl.appendChild(tag);
         });
       }
 
