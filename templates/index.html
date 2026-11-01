@@ -289,8 +289,7 @@
             <div style="margin-bottom:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
               <label for="providerSelect" class="subtle" style="margin:0;">Provider</label>
               <select id="providerSelect" style="max-width:220px;">
-                <option value="openai">OpenAI</option>
-                <option value="gemini">Google Gemini</option>
+                <option value="local">FitPilot Local Coach</option>
               </select>
             </div>
             <div class="chat-window">
@@ -520,7 +519,6 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               question,
-              provider: providerSelect.value,
               schedule_id: activeSchedule?.id || null,
             }),
           });

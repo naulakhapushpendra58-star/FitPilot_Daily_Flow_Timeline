@@ -1,5 +1,4 @@
 import json
-import os
 import re
 from typing import Any, Dict, Iterable, List
 
@@ -67,8 +66,8 @@ def _fallback_answer(question: str, knowledge_base: Dict[str, Any], profile: Dic
     remaining = [item.get("activity_name") for item in items if not item.get("completed")]
     available_minutes = profile.get("available_minutes") or 120
     goal = profile.get("goal") or "Build consistency"
-    work_start = profile.get("work_start")
-    work_end = profile.get("work_end")
+    work_start = profile.get("work_start") or "09:00"
+    work_end = profile.get("work_end") or "17:00"
     wake_time = profile.get("wake_time") or "07:00"
     sleep_time = profile.get("sleep_time") or "23:00"
 
@@ -77,8 +76,9 @@ def _fallback_answer(question: str, knowledge_base: Dict[str, Any], profile: Dic
     if _contains_any(q, ["create my complete daily routine", "daily routine", "complete routine", "build my day", "schedule all"]):
         return (
             f"A balanced daily routine for your goal of {goal} could start with a wake-up block, then {prefs_text if preferred else 'a preferred activity'}, "
-            f"followed by focused work or study from {work_start or 'your work start'} to {work_end or 'your work end'}, a short recovery break, and a wind-down period before {sleep_time}. "
-            "The exact plan should fit your available time and preserve realistic recovery.")
+            f"followed by focused work or study from {work_start} to {work_end}, a short recovery break, and a wind-down period before {sleep_time}. "
+            "The exact plan should fit your available time and preserve realistic recovery."
+        )
 
     if _contains_any(q, ["explain my current schedule", "schedule", "current plan", "what is in my schedule", "show my schedule"]):
         summary = _schedule_summary(profile)
@@ -161,7 +161,7 @@ def _fallback_answer(question: str, knowledge_base: Dict[str, Any], profile: Dic
             "I can help by aligning your schedule with your goal, available time, and selected preferences. The strongest plans usually combine realistic movement, short breaks, and enough recovery to stay sustainable."
         )
 
-    if _contains_any(q, ["medical", "diagnosis", "pain", "injury", "treatment"]) :
+    if _contains_any(q, ["medical", "diagnosis", "pain", "injury", "treatment"]):
         return "This assistant is designed for daily planning, fitness, and productivity guidance. It does not diagnose medical conditions or recommend treatment. If you have pain or injury concerns, a qualified professional should guide that decision."
 
     if profile.get("goal"):
@@ -181,29 +181,5 @@ def answer_fitness_question(question, knowledge_base, profile=None):
     question_text = str(question or "").strip()
     if not question_text:
         return "Please ask a question about your schedule, preferred activities, or wellness routine."
-
-    if os.getenv("OPENAI_API_KEY"):
-        try:
-            from openai import OpenAI
-
-            payload = {
-                "activity_library": activities,
-                "profile": profile,
-                "preferred_activities": _normalize_preferences(profile),
-                "question": question_text,
-                "schedule_summary": _schedule_summary(profile),
-            }
-            response = OpenAI().responses.create(
-                model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-                instructions=(
-                    "You are a helpful FitPilot daily planning assistant. Use the supplied activity library, schedule context, and user profile to answer the question. "
-                    "Keep your answer grounded in the provided facts, avoid making medical claims, and keep the response concise but useful. "
-                    "If the question is unrelated to fitness, productivity, wellness or scheduling, gently say the assistant is designed for FitPilot planning and wellness support."
-                ),
-                input=json.dumps(payload, default=str),
-            )
-            return response.output_text
-        except Exception:
-            pass
 
     return _fallback_answer(question_text, knowledge_base, profile)

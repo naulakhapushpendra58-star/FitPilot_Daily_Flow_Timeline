@@ -102,8 +102,8 @@ class ApiTests(unittest.TestCase):
         self.assertIn("Plan cleared successfully", clear_resp.json()["message"])
 
     def test_clear_chat(self):
-        chat_response = self.client.post("/api/chat", json={"question": "How can I improve my daily productivity?", "provider": "openai"})
-        self.assertIn(chat_response.status_code, [200, 400, 502])
+        chat_response = self.client.post("/api/chat", json={"question": "How can I improve my daily productivity?"})
+        self.assertEqual(chat_response.status_code, 200)
         clear_resp = self.client.delete("/api/chat")
         self.assertEqual(clear_resp.status_code, 200)
         self.assertIn("successfully", clear_resp.json()["message"])
@@ -113,8 +113,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(providers.status_code, 200)
         payload = providers.json()
         self.assertIn("providers", payload)
-        self.assertTrue(any(item["id"] == "openai" for item in payload["providers"]))
-        self.assertTrue(any(item["id"] == "gemini" for item in payload["providers"]))
+        self.assertTrue(any(item["id"] == "local" for item in payload["providers"]))
 
     def test_static_endpoint(self):
         response = self.client.get("/static/.gitkeep")

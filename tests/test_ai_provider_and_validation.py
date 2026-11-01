@@ -11,27 +11,15 @@ class AiProviderAndValidationTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    def test_generate_chat_completion_uses_openai_mock(self):
-        with patch("ai_providers._call_openai", return_value="OpenAI answer") as mock_openai:
-            response = generate_chat_completion(
-                "How should I structure my day?",
-                {"goal": "Build consistency", "preferred_activities": ["Walking"]},
-                [],
-                provider="openai",
-            )
-            self.assertEqual(response, "OpenAI answer")
-            mock_openai.assert_called_once()
-
-    def test_generate_chat_completion_uses_gemini_mock(self):
-        with patch("ai_providers._call_gemini", return_value="Gemini answer") as mock_gemini:
-            response = generate_chat_completion(
-                "How should I structure my day?",
-                {"goal": "Build consistency", "preferred_activities": ["Walking"]},
-                [],
-                provider="gemini",
-            )
-            self.assertEqual(response, "Gemini answer")
-            mock_gemini.assert_called_once()
+    def test_generate_chat_completion_uses_local_coach(self):
+        response = generate_chat_completion(
+            "Show my complete routine.",
+            {"goal": "Build consistency", "preferred_activities": ["Walking"], "schedule": {"items": [{"activity_name": "Walking", "start_time": "07:30", "end_time": "08:00", "duration_minutes": 30, "completed": False}]}}
+            ,
+            [],
+            provider="local",
+        )
+        self.assertIn("routine", response.lower())
 
     def test_generate_chat_completion_rejects_invalid_provider(self):
         with self.assertRaises(ValueError):
@@ -50,6 +38,15 @@ class AiProviderAndValidationTests(unittest.TestCase):
         response = self.client.post("/api/schedules/generate", json=payload)
         self.assertEqual(response.status_code, 400)
         self.assertIn("Wake time must be earlier than sleep time", response.json()["detail"])
+
+    def test_local_coach_rejects_unrelated_question(self):
+        response = generate_chat_completion(
+            "What is the capital of France?",
+            {"goal": "Build consistency"},
+            [],
+            provider="local",
+        )
+        self.assertIn("FitPilot's project assistant", response)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from ai_providers import generate_chat_completion
 from database import Base, SessionLocal, engine
 from fitness_chatbot import RECOMMENDED_QUESTIONS, answer_fitness_question
 from llm_grounding import grounded_explanation
+from local_ai_coach import generate_local_coach_response
 from models import ChatMessage, Preference, Schedule, ScheduleItem
 from planner import PersonalAssistantAgent, TimeBlock, make_datetime
 from schemas import (
@@ -647,9 +648,9 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     if not question:
         raise HTTPException(status_code=400, detail="Question is required.")
 
-    provider = (payload.provider or "openai").lower()
-    if provider not in {"openai", "gemini"}:
-        raise HTTPException(status_code=400, detail="Unsupported AI provider selected.")
+    provider = (payload.provider or "local").lower()
+    if provider not in {"local", "openai", "gemini"}:
+        provider = "local"
 
     pref = get_or_create_preference(db)
     schedule = None
@@ -674,9 +675,14 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
         "experience": pref.experience,
         "wake_time": pref.wake_time,
         "sleep_time": pref.sleep_time,
+        "lunch_time": getattr(pref, "lunch_time", "12:30"),
         "work_start": pref.work_start,
         "work_end": pref.work_end,
         "schedule": schedule_payload,
+        "available_minutes": pref.available_minutes,
+        "target_duration": pref.target_duration,
+        "break_duration": pref.break_duration,
+        "study_duration": pref.study_duration,
     }
 
     history = get_chat_history(db, schedule_id)
@@ -686,20 +692,19 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
             question,
             profile,
             KB.get("activities", []),
-            provider=provider,
+            provider="local",
             history=history,
         )
     except Exception as exc:
         answer = (
-            f"AI provider unavailable for '{provider}'. "
-            f"{exc}. Please configure a valid API key and billing/quota for {provider} to use the AI Coach."
+            "I'm FitPilot's local project assistant. "
+            f"I couldn't answer that request from the current plan data. {exc}"
         )
-        provider = provider
 
     db.add(ChatMessage(role="user", content=question, schedule_id=schedule_id))
     db.add(ChatMessage(role="assistant", content=answer, schedule_id=schedule_id))
     db.commit()
-    return ChatResponse(answer=answer, provider=provider)
+    return ChatResponse(answer=answer, provider="local")
 
 
 def get_chat_history(db: Session, schedule_id: Optional[int] = None) -> List[Dict[str, str]]:
@@ -730,8 +735,7 @@ async def delete_chat_history(schedule_id: Optional[int] = None, db: Session = D
 async def available_providers():
     return {
         "providers": [
-            {"id": "openai", "name": "OpenAI", "configured": bool(os.getenv("OPENAI_API_KEY"))},
-            {"id": "gemini", "name": "Google Gemini", "configured": bool(os.getenv("GEMINI_API_KEY"))},
+            {"id": "local", "name": "FitPilot Local Coach", "configured": True},
         ]
     }
 

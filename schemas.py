@@ -71,7 +71,7 @@ class ActivityCreate(BaseModel):
 class ChatRequest(BaseModel):
     question: str
     schedule_id: Optional[int] = None
-    provider: Optional[str] = "openai"
+    provider: Optional[str] = "local"
 
 
 class ChatResponse(BaseModel):
