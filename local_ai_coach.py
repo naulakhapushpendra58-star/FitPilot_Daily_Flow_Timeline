@@ -87,7 +87,8 @@ def generate_local_coach_response(question: str, profile: Optional[Dict[str, Any
     project_keywords = [
         "fitpilot", "planner", "plan", "dashboard", "timeline", "routine", "schedule", "activity",
         "work", "study", "break", "sleep", "wake", "goal", "exercise", "fitness", "custom",
-        "daily", "progress", "habit", "walking", "stretching", "fatigue", "coach"
+        "daily", "progress", "habit", "walking", "stretching", "fatigue", "coach", "workout",
+        "run", "running", "cycling", "cycle", "yoga", "strength", "recovery", "motivation"
     ]
     if not any(keyword in lowered for keyword in project_keywords):
         return _project_only_reply()
@@ -259,5 +260,45 @@ def generate_local_coach_response(question: str, profile: Optional[Dict[str, Any
 
     if _contains_any(lowered, ["how can i remove an activity", "remove activity", "delete activity from plan"]):
         return "Use the planner to update or regenerate the schedule, or remove the unwanted custom row before generating the plan again. The timeline also supports marking items as skipped when you decide not to do them."
+
+    if _contains_any(lowered, ["what workout should i do", "what activity should i do", "workout suggestion", "fitness suggestion", "exercise suggestion", "suggest a workout", "what should i do for exercise", "best workout", "what exercises can i do"]):
+        if not items:
+            return _no_plan_reply()
+        preferred_summary = prefs_text if prefs_text != "your selected activities" else "low-impact movement"
+        return f"Based on your goal ({goal}) and your selected activities ({preferred_summary}), a strong option is a short warm-up, 20–30 minutes of focused movement, and a brief cooldown or stretch. Keep it within your available time and leave recovery breaks in the plan."
+
+    if _contains_any(lowered, ["walking", "walk", "brisk walk", "nature walk", "walking routine"]):
+        if not items:
+            return _no_plan_reply()
+        return f"Walking is a strong low-impact option for consistency, recovery, and energy. Given your available window of {profile.get('available_minutes') or 120} minutes, a 20–30 minute walk fits well alongside {prefs_text}."
+
+    if _contains_any(lowered, ["running", "run", "jog", "interval run", "sprint"]):
+        return "Running works best when your plan already includes recovery and a manageable pace. Start easy, keep sessions controlled, and add breaks or lighter days if you're building consistency."
+
+    if _contains_any(lowered, ["cycling", "cycle", "bike", "bicycle"]):
+        return "Cycling is a good cardio option when you want lower joint impact than running. A steady 20–35 minute ride can work well if your schedule has enough time and your goal is endurance or general fitness."
+
+    if _contains_any(lowered, ["yoga", "mobility", "mobility workout", "stretch flow"]):
+        return "Yoga or mobility work is useful for flexibility, stress reduction, and recovery. It is especially helpful after long study or work blocks and works well as a short evening routine."
+
+    if _contains_any(lowered, ["strength training", "strength", "weights", "gym", "resistance", "lifting"]):
+        return "Strength training is best when paired with recovery. Keep sessions focused and realistic, and allow enough rest between hard efforts so the plan remains sustainable."
+
+    if _contains_any(lowered, ["study work balance", "work study balance", "balance work and study", "study break", "work life balance", "balance my day"]):
+        return "A realistic balance keeps deep work or study blocks focused, then adds movement or recovery before the next demanding period. Protect your breaks and activity windows so the day stays sustainable."
+
+    if _contains_any(lowered, ["how can i improve consistency", "improve consistency", "maintain consistency", "be more consistent", "fitness consistency", "motivation"]):
+        return "Consistency gets stronger when the routine is realistic. Keep your wake and sleep times steady, use a few preferred activities you enjoy, and protect your recovery breaks before increasing intensity."
+
+    if _contains_any(lowered, ["how can i recover after workout", "recovery after workout", "rest and recovery", "how to recover", "recovery tips"]):
+        return "Recovery is part of the plan. Keep a short stretch, hydration, and a break after exercise, and avoid piling too much intensity on back-to-back days."
+
+    if _contains_any(lowered, ["what should i do today", "what should i do", "how should i structure my day", "structure my day", "what is my plan for today"]):
+        if not items:
+            return _no_plan_reply()
+        return "Your current routine already structures the day from wake-up to sleep. Review the timeline and start with the earliest uncompleted activity."
+
+    if _contains_any(lowered, ["what is my selected activity", "selected activities", "my preferences", "preferred activities", "what activities do i like"]):
+        return f"Your current preferences include {prefs_text}."
 
     return _project_only_reply()

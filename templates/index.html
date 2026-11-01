@@ -710,7 +710,14 @@
         sendChatBtn.textContent = loading ? 'Sending...' : 'Send';
       }
 
+      function clearChat() {
+        if (!chatMessages) return;
+        chatMessages.innerHTML = '';
+        chatMessages.scrollTop = 0;
+      }
+
       function appendChat(role, text) {
+        if (!chatMessages) return;
         const el = document.createElement('div');
         el.className = `chat-message ${role}`;
         el.textContent = text;
