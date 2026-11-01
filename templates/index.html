@@ -61,38 +61,39 @@
       .stat-number { font-size: 1.8rem; font-weight: 800; margin-top: 8px; }
       .section-title { font-size: 1.2rem; font-weight: 700; margin: 0 0 18px; }
       .content-grid { display: grid; grid-template-columns: 1.4fr 0.9fr; gap: 18px; }
-      .timeline { display: flex; flex-direction: column; gap: 12px; }
-      .timeline-item { display: grid; grid-template-columns: 90px 1fr auto; gap: 12px; align-items: center; background: rgba(15,23,42,0.9); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; }
-      .time-badge { font-size: 0.8rem; color: var(--accent); background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.3); border-radius: 999px; padding: 6px 10px; text-align: center; }
-      .timeline-item h4 { margin: 0 0 4px; }
-      .timeline-item p { margin: 0; color: var(--muted); }
-      .status-pill { padding: 6px 10px; border-radius: 999px; font-size: 0.72rem; border: 1px solid; font-weight: 700; }
+      .timeline { display:flex; flex-direction:column; gap:16px; position:relative; padding-left:18px; }
+      .timeline::before {
+        content:""; position:absolute; left:12px; top:0; bottom:0; width:2px; background:linear-gradient(180deg, rgba(139,92,246,0.8), rgba(56,189,248,0.45), rgba(148,163,184,0.18));
+      }
+      .timeline-item {
+        position:relative; display:grid; grid-template-columns: 18px minmax(0,1fr) auto; gap:14px; align-items:center; background:rgba(15,23,42,0.9); border:1px solid var(--border); border-radius:18px; padding:16px 18px; box-shadow:0 9px 25px rgba(15,23,42,0.28);
+      }
+      .timeline-item::before {
+        content:""; position:absolute; left:-17px; top:26px; width:12px; height:12px; border-radius:50%; background:linear-gradient(135deg, var(--primary), var(--accent)); border:2px solid rgba(11,16,32,1); box-shadow:0 0 0 4px rgba(139,92,246,0.12);
+      }
+      .timeline-item.current::before { background:linear-gradient(135deg, var(--warning), var(--accent)); box-shadow:0 0 0 4px rgba(251,191,36,0.16); }
+      .timeline-item.completed { border-color: rgba(52,211,153,0.4); }
+      .timeline-item.skipped { border-color: rgba(248,113,113,0.34); }
+      .timeline-item .timeline-main { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+      .timeline-time {
+        display:flex; flex-direction:column; align-items:flex-start; gap:6px; min-width: 122px; color: var(--muted); font-size:0.74rem;
+      }
+      .timeline-time strong { color:var(--accent); font-size:0.9rem; }
+      .timeline-card {
+        display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;
+      }
+      .timeline-meta { display:flex; flex-direction:column; gap:4px; }
+      .timeline-title { margin:0; font-size:1.02rem; }
+      .timeline-desc { margin:0; color:var(--muted); font-size:0.82rem; }
+      .timeline-icon { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; background:rgba(139,92,246,0.14); border:1px solid rgba(139,92,246,0.28); font-size:1.1rem; }
+      .timeline-status { display:flex; align-items:center; gap:8px; }
+      .status-pill { padding:6px 10px; border-radius:999px; font-size:0.72rem; border: 1px solid; font-weight: 700; }
       .status-pill.done { background: rgba(52,211,153,0.13); color: var(--success); border-color: rgba(52,211,153,0.4); }
       .status-pill.pending { background: rgba(139,92,246,0.12); color: #c4b5fd; border-color: rgba(139,92,246,0.4); }
       .status-pill.skipped { background: rgba(248,113,113,0.12); color: var(--danger); border-color: rgba(248,113,113,0.36); }
-      .build-form { display: grid; gap: 16px; }
-      .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-      label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
-      input, select, textarea { width: 100%; padding: 11px 12px; background: rgba(15,23,42,0.85); color: var(--text); border: 1px solid var(--border); border-radius: 12px; }
-      textarea { min-height: 96px; resize: vertical; }
-      .subtle { color: var(--muted); font-size: 0.82rem; }
-      .chat-window { background: rgba(15,23,42,0.82); border: 1px solid var(--border); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-height: 360px; max-height: 420px; }
-      .chat-message { max-width: 85%; padding: 12px 14px; border-radius: 14px; line-height: 1.5; }
-      .chat-message.user { background: rgba(99,102,241,0.2); margin-left: auto; border: 1px solid rgba(99,102,241,0.4); }
-      .chat-message.assistant { background: rgba(148,163,184,0.08); border: 1px solid rgba(148,163,184,0.2); }
-      .question-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-      .chip { padding: 8px 10px; border: 1px solid var(--border); background: rgba(15,23,42,0.72); border-radius: 999px; color: var(--muted); cursor: pointer; font-size: .82rem; }
-      .multiselect-wrap { background: rgba(15,23,42,0.85); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
-      .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
-      .checkbox-grid label { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: rgba(15,23,42,0.75); border: 1px solid var(--border); border-radius: 12px; color: var(--text); cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease; }
-      .checkbox-grid label:hover { border-color: rgba(139,92,246,0.5); background: rgba(139,92,246,0.08); }
-      .checkbox-grid input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); margin: 0; }
-      .selected-tags { display: flex; flex-wrap: wrap; gap: 8px; min-height: 26px; margin-bottom: 8px; }
-      .tag { background: rgba(139,92,246,0.18); border: 1px solid rgba(139,92,246,0.45); color: #f3e8ff; border-radius: 999px; padding: 5px 9px; font-size: 0.75rem; display: inline-flex; gap: 6px; align-items: center; }
-      .empty-state { background: rgba(148,163,184,0.04); border: 1px dashed var(--border); border-radius: 14px; padding: 16px; color: var(--muted); }
-      .custom-activities { display: grid; gap: 12px; }
-      .custom-activity-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
-      .inline-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      .status-pill.current { background: rgba(251,191,36,0.13); color: var(--warning); border-color: rgba(251,191,36,0.4); }
+      .progress-meter { width: 100%; height: 10px; background: rgba(148,163,184,0.1); border-radius:999px; overflow:hidden; }
+      .progress-meter > span { display:block; height:100%; background:linear-gradient(135deg, var(--primary), var(--accent)); border-radius:999px; }
       .mobile-nav { display: none; }
       @media (max-width: 980px) {
         .app-shell { grid-template-columns: 1fr; }
@@ -132,12 +133,19 @@
             <div class="panel hero-copy">
               <h2>Build a smarter rhythm for your day.</h2>
               <p>Turn your goals, commitments, and available time into a realistic daily plan with movement, recovery, focus, and rest.</p>
+              <div class="hero-actions">
+                <button class="btn primary" id="dashboardGeneratePlanBtn" type="button">Generate Plan</button>
+                <button class="btn secondary" id="dashboardRegeneratePlanBtn" type="button">Regenerate Plan</button>
+              </div>
             </div>
             <div class="panel">
               <div class="section-title">Today’s progress</div>
               <div class="stat-card">
                 <div class="stat-label">Overall progress</div>
                 <div class="stat-number" id="progressOverview">0%</div>
+                <div style="margin-top:10px; height:10px; border-radius:999px; background:rgba(148,163,184,.12); overflow:hidden;">
+                  <div id="progressBar" style="height:100%; width:0%; background:linear-gradient(135deg, var(--primary), var(--accent)); border-radius:999px; transition:width .25s ease;"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -181,7 +189,13 @@
           </div>
 
           <div class="panel">
-            <div class="section-title">Daily activity timeline</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+              <div class="section-title" style="margin:0;">Daily activity timeline</div>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <label for="dateSelector" class="subtle" style="margin:0;">Date</label>
+                <input id="dateSelector" type="date" value="" style="max-width:170px;" />
+              </div>
+            </div>
             <div class="timeline" id="timeline"></div>
             <div class="inline-actions" style="margin-top:18px;">
               <button class="btn danger" id="clearPlanBtn" type="button" style="display:none;">Clear Plan</button>
@@ -333,6 +347,8 @@
     </div>
 
     <script>
+      const dashboardGeneratePlanBtn = document.getElementById('dashboardGeneratePlanBtn');
+      const dashboardRegeneratePlanBtn = document.getElementById('dashboardRegeneratePlanBtn');
       const timeline = document.getElementById('timeline');
       const chatMessages = document.getElementById('chatMessages');
       const recommendedQuestions = document.getElementById('recommendedQuestions');
@@ -349,6 +365,7 @@
       const providerSelect = document.getElementById('providerSelect');
       const customActivitiesList = document.getElementById('customActivitiesList');
       const addCustomActivityBtn = document.getElementById('addCustomActivityBtn');
+      const dateSelector = document.getElementById('dateSelector');
 
       const questionList = [
         'Create my complete daily routine',
@@ -374,6 +391,11 @@
       function clearMessage() {
         appMessages.textContent = '';
         appMessages.style.display = 'none';
+      }
+
+      function getCurrentTimeMinutes() {
+        const now = new Date();
+        return now.getHours() * 60 + now.getMinutes();
       }
 
       function setActiveView(viewName) {
@@ -462,6 +484,8 @@
         isGenerating = true;
         plannerSubmitBtn.disabled = true;
         plannerSubmitBtn.textContent = 'Generating...';
+        dashboardGeneratePlanBtn.disabled = true;
+        dashboardRegeneratePlanBtn.disabled = true;
         clearMessage();
 
         try {
@@ -499,6 +523,8 @@
           isGenerating = false;
           plannerSubmitBtn.disabled = false;
           plannerSubmitBtn.textContent = 'Generate Plan';
+          dashboardGeneratePlanBtn.disabled = false;
+          dashboardRegeneratePlanBtn.disabled = false;
         }
       }
 
@@ -646,6 +672,7 @@
         document.getElementById('breakTime').textContent = `${breakMinutes}m`;
         document.getElementById('productivity').textContent = `${Math.round(progress)}%`;
         document.getElementById('progressOverview').textContent = `${Math.round(progress)}%`;
+        document.getElementById('progressBar').style.width = `${Math.min(100, Math.max(0, progress))}%`;
         document.getElementById('remainingCount').textContent = Math.max(total - completed, 0);
       }
 
@@ -657,29 +684,50 @@
           return;
         }
 
+        const nowMinutes = getCurrentTimeMinutes();
+
         list.forEach((item) => {
           const row = document.createElement('div');
-          row.className = 'timeline-item';
+          const startMinutes = item.start_time ? (() => {
+            const [hours, minutes] = item.start_time.split(':').map(Number);
+            return hours * 60 + minutes;
+          })() : 0;
+          const endMinutes = item.end_time ? (() => {
+            const [hours, minutes] = item.end_time.split(':').map(Number);
+            return hours * 60 + minutes;
+          })() : startMinutes;
           const isDone = !!item.completed || item.status === 'completed';
           const isSkipped = item.status === 'skipped';
-          const status = isDone ? 'done' : (isSkipped ? 'skipped' : 'pending');
-          const badgeText = isDone ? 'Completed' : (isSkipped ? 'Skipped' : 'Pending');
+          const isCurrent = !isDone && !isSkipped && nowMinutes >= startMinutes && nowMinutes < endMinutes;
+          const status = isDone ? 'done' : (isSkipped ? 'skipped' : (isCurrent ? 'current' : 'pending'));
+          const badgeText = isDone ? 'Completed' : (isSkipped ? 'Skipped' : (isCurrent ? 'Now' : 'Pending'));
+
+          row.className = `timeline-item ${status === 'done' ? 'completed' : status === 'skipped' ? 'skipped' : ''} ${isCurrent ? 'current' : ''}`.trim();
           row.innerHTML = `
-            <div class="time-badge">${item.start_time || '--:--'}</div>
-            <div>
-              <h4>${item.activity_name}</h4>
-              <p>${item.category || 'Activity'} • ${item.duration_minutes || 0} min • ${item.reason || 'Well-paced activity block'}</p>
+            <div class="timeline-time">
+              <strong>${item.start_time || '--:--'}</strong>
+              <span>${item.end_time || '--:--'}</span>
             </div>
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-              <span class="status-pill ${status}">${badgeText}</span>
-              <div style="display:flex; gap:6px;">
-                <button class="btn ghost" data-action="complete" data-id="${item.id}" style="padding:8px 10px; font-size:0.75rem;">Complete</button>
-                <button class="btn ghost" data-action="skip" data-id="${item.id}" style="padding:8px 10px; font-size:0.75rem;">Skip</button>
+            <div class="timeline-card">
+              <div class="timeline-icon">${(item.category || item.activity_name || 'A').slice(0, 1).toUpperCase()}</div>
+              <div class="timeline-meta">
+                <h4 class="timeline-title">${item.activity_name || 'Activity'}</h4>
+                <p class="timeline-desc">${item.category || 'Activity'} • ${item.duration_minutes || 0} min • ${item.reason || 'Well-paced activity block'}</p>
+              </div>
+              <div class="timeline-status">
+                <span class="status-pill ${status}">${badgeText}</span>
               </div>
             </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-left:8px;">
+              <button class="btn ghost" data-action="complete" data-id="${item.id || ''}" style="padding:8px 10px; font-size:0.75rem;">Complete</button>
+              <button class="btn ghost" data-action="skip" data-id="${item.id || ''}" style="padding:8px 10px; font-size:0.75rem;">Skip</button>
+            </div>
           `;
-          row.querySelector('[data-action="complete"]').addEventListener('click', () => toggleActivity(item.id, 'complete'));
-          row.querySelector('[data-action="skip"]').addEventListener('click', () => toggleActivity(item.id, 'skip'));
+
+          const completeBtn = row.querySelector('[data-action="complete"]');
+          const skipBtn = row.querySelector('[data-action="skip"]');
+          if (completeBtn && item.id) completeBtn.addEventListener('click', () => toggleActivity(item.id, 'complete'));
+          if (skipBtn && item.id) skipBtn.addEventListener('click', () => toggleActivity(item.id, 'skip'));
           container.appendChild(row);
         });
       }
@@ -793,6 +841,13 @@
         generatePlan();
       });
 
+      dashboardGeneratePlanBtn.addEventListener('click', () => {
+        generatePlan();
+      });
+      dashboardRegeneratePlanBtn.addEventListener('click', () => {
+        generatePlan();
+      });
+
       clearPlanBtn.addEventListener('click', clearPlan);
       clearChatBtn.addEventListener('click', clearChat);
       sendChatBtn.addEventListener('click', (event) => {
@@ -811,6 +866,25 @@
       addCustomActivityBtn.addEventListener('click', () => {
         customActivitiesList.appendChild(createCustomActivityRow({ activity_name: '', start_time: '08:00', end_time: '08:30', category: 'Break' }));
       });
+      dateSelector.addEventListener('change', async () => {
+        const selectedDate = dateSelector.value;
+        if (!selectedDate) return;
+        const formattedDate = new Date(selectedDate).toISOString().split('T')[0];
+        try {
+          const response = await fetch(`/api/schedules?date=${formattedDate}`);
+          if (!response.ok) throw new Error('Unable to load schedule for the selected date.');
+          const data = await response.json();
+          activeSchedule = data.schedule;
+          renderTimeline(data.schedule.items || [], timeline);
+          updateStats(data.schedule, data.stats);
+          statusChip.textContent = 'Plan ready';
+        } catch (error) {
+          console.error(error);
+          showMessage(error.message || 'Unable to load schedule.', 'error');
+        }
+      });
+
+      dateSelector.value = new Date().toISOString().split('T')[0];
 
       const initialHash = window.location.hash.replace('#', '');
       if (initialHash && document.getElementById(`${initialHash}-view`)) {
