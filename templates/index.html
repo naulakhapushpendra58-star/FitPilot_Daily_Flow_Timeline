@@ -132,9 +132,6 @@
             <div class="panel hero-copy">
               <h2>Build a smarter rhythm for your day.</h2>
               <p>Turn your goals, commitments, and available time into a realistic daily plan with movement, recovery, focus, and rest.</p>
-              <div class="hero-actions">
-                <button class="btn primary" id="generateBtn" type="button">Generate plan</button>
-              </div>
             </div>
             <div class="panel">
               <div class="section-title">Today’s progress</div>
@@ -336,7 +333,6 @@
       const chatMessages = document.getElementById('chatMessages');
       const recommendedQuestions = document.getElementById('recommendedQuestions');
       const plannerForm = document.getElementById('plannerForm');
-      const generateBtn = document.getElementById('generateBtn');
       const sendChatBtn = document.getElementById('sendChatBtn');
       const chatInput = document.getElementById('chatInput');
       const preferredActivitiesSelect = document.getElementById('preferredActivities');
@@ -551,7 +547,7 @@
         container.innerHTML = '';
         const list = items || [];
         if (!list.length) {
-          container.innerHTML = '<div class="empty-state">No schedule generated yet. Save your preferences and generate a plan from the Planner page.</div>';
+          container.innerHTML = '<div class="empty-state">No daily plan generated yet. Create your routine in Planner.</div>';
           return;
         }
 
@@ -563,7 +559,7 @@
           const status = isDone ? 'done' : (isSkipped ? 'skipped' : 'pending');
           const badgeText = isDone ? 'Completed' : (isSkipped ? 'Skipped' : 'Pending');
           row.innerHTML = `
-            <div class="time-badge">${item.start_time}</div>
+            <div class="time-badge">${item.start_time || '--:--'}</div>
             <div>
               <h4>${item.activity_name}</h4>
               <p>${item.category || 'Activity'} • ${item.duration_minutes || 0} min • ${item.reason || 'Well-paced activity block'}</p>
@@ -576,10 +572,8 @@
               </div>
             </div>
           `;
-          const completeBtn = row.querySelector('[data-action="complete"]');
-          const skipBtn = row.querySelector('[data-action="skip"]');
-          completeBtn.addEventListener('click', () => toggleActivity(item.id, 'complete'));
-          skipBtn.addEventListener('click', () => toggleActivity(item.id, 'skip'));
+          row.querySelector('[data-action="complete"]').addEventListener('click', () => toggleActivity(item.id, 'complete'));
+          row.querySelector('[data-action="skip"]').addEventListener('click', () => toggleActivity(item.id, 'skip'));
           container.appendChild(row);
         });
       }
@@ -618,102 +612,6 @@
         } catch (error) {
           console.error(error);
           statusChip.textContent = 'Unable to load wellness plan';
-        }
-      }
-
-      async function sendChat() {
-        const value = chatInput.value.trim();
-        if (!value || isSending) return;
-
-        appendChat('user', value);
-        chatInput.value = '';
-        setChatLoading(true);
-
-        try {
-          const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: value, schedule_id: activeSchedule?.id, provider: providerSelect.value })
-          });
-
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.detail || 'Unable to send message.');
-          }
-          appendChat('assistant', data.answer || 'I am unable to answer that right now.');
-        } catch (error) {
-          appendChat('assistant', error.message || 'I hit a temporary error while responding. Please try again.');
-        } finally {
-          setChatLoading(false);
-        }
-      }
-
-      function buildPayloadWithCustomActivities() {
-        const values = getFormValues();
-        const customActivities = getCustomActivities();
-        return {
-          day: new Date().toISOString().slice(0, 10),
-          goal: values.goal,
-          preference: values.preferred_activity,
-          preferred_activities: values.preferred_activities,
-          preferred_activity: values.preferred_activity,
-          experience: values.experience,
-          available_minutes: Number(values.available_minutes),
-          target_duration: Number(values.target_duration),
-          wake_time: values.wake_time,
-          sleep_time: values.sleep_time,
-          work_start: values.work_start,
-          work_end: values.work_end,
-          break_duration: Number(values.break_duration),
-          study_duration: Number(values.study_duration),
-          custom_activities: customActivities,
-        };
-      }
-
-      async function generatePlan() {
-        if (isGenerating) return;
-        const values = getFormValues();
-        if (!values.preferred_activities.length) {
-          showMessage('Select at least one preferred activity before generating a schedule.', 'error');
-          return;
-        }
-
-        isGenerating = true;
-        plannerSubmitBtn.disabled = true;
-        generateBtn.disabled = true;
-        plannerSubmitBtn.textContent = 'Generating...';
-        showMessage('Generating your complete daily routine...', 'info');
-
-        try {
-          await savePreferencesFromForm();
-          const payload = buildPayloadWithCustomActivities();
-          const response = await fetch('/api/schedules/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.detail || 'Unable to generate a schedule.');
-          }
-
-          activeSchedule = data.schedule;
-          renderTimeline(activeSchedule.items || [], timeline);
-          updateStats(activeSchedule, { total_minutes: activeSchedule.total_minutes, break_minutes: activeSchedule.items.filter((item) => ['break', 'recovery', 'relaxation', 'rest'].includes(String(item.category || '').toLowerCase())).reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0), progress_pct: 0 });
-          clearPlanBtn.style.display = 'inline-flex';
-          statusChip.textContent = 'Plan generated';
-          showMessage('Your daily routine was generated successfully.', 'success');
-          setActiveView('dashboard');
-        } catch (error) {
-          console.error(error);
-          showMessage(error.message || 'Unable to generate a schedule.', 'error');
-          statusChip.textContent = 'Schedule generation failed';
-        } finally {
-          isGenerating = false;
-          plannerSubmitBtn.disabled = false;
-          generateBtn.disabled = false;
-          plannerSubmitBtn.textContent = 'Generate Plan';
         }
       }
 
@@ -789,7 +687,6 @@
         generatePlan();
       });
 
-      generateBtn.addEventListener('click', () => generatePlan());
       clearPlanBtn.addEventListener('click', clearPlan);
       clearChatBtn.addEventListener('click', clearChat);
       sendChatBtn.addEventListener('click', (event) => {

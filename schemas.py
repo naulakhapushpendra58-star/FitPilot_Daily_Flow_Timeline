@@ -12,6 +12,7 @@ class PreferenceBase(BaseModel):
     experience: str = "Beginner"
     wake_time: str = "07:00"
     sleep_time: str = "23:00"
+    lunch_time: Optional[str] = "12:30"
     work_start: Optional[str] = None
     work_end: Optional[str] = None
     study_duration: int = 60
@@ -53,13 +54,18 @@ class ScheduleUpdate(BaseModel):
 
 
 class ActivityCreate(BaseModel):
-    name: str
+    activity_name: Optional[str] = None
+    name: Optional[str] = None
     category: str = "activity"
     start_time: str
     end_time: str
     duration_minutes: int
     reason: str = ""
     completed: bool = False
+
+    @property
+    def resolved_name(self) -> str:
+        return self.activity_name or self.name or "Custom activity"
 
 
 class ChatRequest(BaseModel):

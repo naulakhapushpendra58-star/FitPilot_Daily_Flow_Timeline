@@ -217,7 +217,25 @@ def dedupe_and_sort_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if key in unique:
             continue
         unique[key] = item
-    return sorted(unique.values(), key=lambda entry: (_to_minutes(entry.get("start_time") or "00:00"), entry.get("activity_name", "")))
+
+    sorted_items = sorted(unique.values(), key=lambda entry: (_to_minutes(entry.get("start_time") or "00:00"), entry.get("activity_name", "")))
+    cleaned = []
+    for item in sorted_items:
+        if not cleaned:
+            cleaned.append(item)
+            continue
+        previous = cleaned[-1]
+        prev_end = _to_minutes(previous.get("end_time") or previous.get("start_time") or "00:00")
+        current_start = _to_minutes(item.get("start_time") or "00:00")
+        if prev_end > current_start:
+            previous_end_safe = _to_minutes(previous.get("end_time") or previous.get("start_time") or "00:00")
+            current_start_safe = _to_minutes(item.get("start_time") or "00:00")
+            if current_start_safe < previous_end_safe:
+                previous["end_time"] = _minutes_to_time(max(previous_end_safe, current_start_safe))
+                previous["duration_minutes"] = max(0, _to_minutes(previous["end_time"]) - _to_minutes(previous["start_time"]))
+                continue
+        cleaned.append(item)
+    return cleaned
 
 
 def get_or_create_preference(db: Session) -> Preference:
@@ -242,6 +260,7 @@ def serialize_preference(pref: Preference) -> Dict[str, Any]:
         "experience": pref.experience,
         "wake_time": pref.wake_time,
         "sleep_time": pref.sleep_time,
+        "lunch_time": getattr(pref, "lunch_time", "12:30"),
         "work_start": pref.work_start,
         "work_end": pref.work_end,
         "study_duration": pref.study_duration,
@@ -273,6 +292,7 @@ def normalize_profile_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         "target_duration": int(payload.get("target_duration", 20)),
         "day_start": payload.get("wake_time") or "07:00",
         "day_end": payload.get("sleep_time") or "23:00",
+        "lunch_time": payload.get("lunch_time") or "12:30",
         "study_duration": int(payload.get("study_duration", 45)),
         "break_duration": int(payload.get("break_duration", 15)),
         "work_start": payload.get("work_start"),
@@ -815,7 +835,20 @@ def add_time_slot(items: List[Dict[str, Any]], start: str, end: str, name: str, 
 def build_daily_routine(profile: Dict[str, Any], plan: List[Any], busy_blocks: List[TimeBlock]) -> List[Dict[str, Any]]:
     wake = profile.get("day_start") or "07:00"
     sleep = profile.get("day_end") or "23:00"
+    lunch_time = profile.get("lunch_time") or "12:30"
     base_items: List[Dict[str, Any]] = []
+
+    if wake:
+        base_items.append({
+            "activity_name": "Wake-up",
+            "category": "routine",
+            "start_time": wake,
+            "end_time": _minutes_to_time(_to_minutes(wake) + 30),
+            "duration_minutes": 30,
+            "reason": "Morning reset and start of your daily flow.",
+            "completed": False,
+            "status": "planned",
+        })
 
     for entry in plan:
         base_items.append(
@@ -830,6 +863,20 @@ def build_daily_routine(profile: Dict[str, Any], plan: List[Any], busy_blocks: L
                 "status": "planned",
             }
         )
+
+    if lunch_time:
+        lunch_start = lunch_time
+        lunch_end = _minutes_to_time(_to_minutes(lunch_time) + 30)
+        base_items.append({
+            "activity_name": "Lunch",
+            "category": "meal",
+            "start_time": lunch_start,
+            "end_time": lunch_end,
+            "duration_minutes": 30,
+            "reason": "Scheduled meal break during your midday window.",
+            "completed": False,
+            "status": "planned",
+        })
 
     study_duration = max(int(profile.get("study_duration") or 0), 0)
     if study_duration > 0:
@@ -856,6 +903,19 @@ def build_daily_routine(profile: Dict[str, Any], plan: List[Any], busy_blocks: L
             sleep,
             busy_blocks,
         )
+
+    if sleep:
+        sleep_minutes = _to_minutes(sleep)
+        base_items.append({
+            "activity_name": "Sleep",
+            "category": "sleep",
+            "start_time": sleep,
+            "end_time": _minutes_to_time((sleep_minutes + 30) % (24 * 60)),
+            "duration_minutes": 30,
+            "reason": "Sleep window and wind-down period for recovery.",
+            "completed": False,
+            "status": "planned",
+        })
 
     return dedupe_and_sort_items(base_items)
 

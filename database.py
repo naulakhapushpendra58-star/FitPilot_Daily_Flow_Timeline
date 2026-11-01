@@ -86,9 +86,31 @@ def ensure_schedule_items_status_column():
         )
 
 
+def ensure_preferences_lunch_time_column():
+    """Add lunch_time for planner meal scheduling to legacy SQLite rows."""
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        if not inspector.has_table("preferences"):
+            return
+
+        columns = [column["name"] for column in inspector.get_columns("preferences")]
+        if "lunch_time" in columns:
+            return
+
+        connection.execute(text("ALTER TABLE preferences ADD COLUMN lunch_time VARCHAR(20) DEFAULT '12:30'"))
+        connection.execute(
+            text("UPDATE preferences SET lunch_time = :default WHERE lunch_time IS NULL OR lunch_time = ''"),
+            {"default": "12:30"},
+        )
+
+
 def initialize_database():
     ensure_preferred_activities_column()
     ensure_schedule_items_status_column()
+    ensure_preferences_lunch_time_column()
     Base.metadata.create_all(bind=engine)
 
 

@@ -16,6 +16,7 @@ class Preference(Base):
     experience = Column(String(50), default="Beginner")
     wake_time = Column(String(20), default="07:00")
     sleep_time = Column(String(20), default="23:00")
+    lunch_time = Column(String(20), default="12:30")
     work_start = Column(String(20), nullable=True)
     work_end = Column(String(20), nullable=True)
     study_duration = Column(Integer, default=60)
