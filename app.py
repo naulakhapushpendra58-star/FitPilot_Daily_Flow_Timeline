@@ -72,6 +72,153 @@ def parse_list_field(value: Any) -> List[str]:
     return [str(value).strip()] if str(value).strip() else []
 
 
+def _is_valid_time(value: Optional[str]) -> bool:
+    if not value:
+        return False
+    try:
+        datetime.strptime(str(value), "%H:%M")
+        return True
+    except ValueError:
+        return False
+
+
+def _to_minutes(value: Optional[str]) -> int:
+    if not value:
+        return 0
+    try:
+        hour, minute = str(value).split(":", 1)
+        return int(hour) * 60 + int(minute)
+    except ValueError:
+        return 0
+
+
+def _minutes_to_time(total_minutes: int) -> str:
+    total_minutes = max(0, total_minutes)
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    return f"{hours:02d}:{minutes:02d}"
+
+
+def validate_schedule_inputs(payload: Dict[str, Any]) -> None:
+    available_minutes = int(payload.get("available_minutes") or 0)
+    target_duration = int(payload.get("target_duration") or 0)
+    if available_minutes <= 0:
+        raise ValueError("Available minutes must be greater than zero.")
+    if target_duration <= 0:
+        raise ValueError("Target duration must be greater than zero.")
+
+    wake_time = payload.get("wake_time") or "07:00"
+    sleep_time = payload.get("sleep_time") or "23:00"
+    if not _is_valid_time(wake_time) or not _is_valid_time(sleep_time):
+        raise ValueError("Wake time and sleep time must be valid times in HH:MM format.")
+    if _to_minutes(wake_time) >= _to_minutes(sleep_time):
+        raise ValueError("Wake time must be earlier than sleep time.")
+
+    work_start = payload.get("work_start")
+    work_end = payload.get("work_end")
+    if bool(work_start) != bool(work_end):
+        raise ValueError("Work start and work end must be provided together.")
+    if work_start and work_end and not _is_valid_time(work_start):
+        raise ValueError("Work start must be a valid time in HH:MM format.")
+    if work_start and work_end and not _is_valid_time(work_end):
+        raise ValueError("Work end must be a valid time in HH:MM format.")
+    if work_start and work_end and _to_minutes(work_start) >= _to_minutes(work_end):
+        raise ValueError("Work end must be later than work start.")
+
+    if int(payload.get("study_duration") or 0) < 0:
+        raise ValueError("Study duration cannot be negative.")
+    if int(payload.get("break_duration") or 0) < 0:
+        raise ValueError("Break duration cannot be negative.")
+
+
+def find_free_slot(
+    scheduled_items: List[Dict[str, Any]],
+    busy_blocks: List[TimeBlock],
+    window_start: str,
+    window_end: str,
+    duration_minutes: int,
+) -> Optional[tuple[int, int]]:
+    if duration_minutes <= 0:
+        return None
+
+    start_limit = _to_minutes(window_start)
+    end_limit = _to_minutes(window_end)
+    if end_limit <= start_limit:
+        return None
+
+    occupied_intervals = []
+    for item in scheduled_items:
+        start_time = item.get("start_time")
+        end_time = item.get("end_time")
+        if start_time and end_time:
+            occupied_intervals.append((_to_minutes(start_time), _to_minutes(end_time)))
+    for block in busy_blocks:
+        occupied_intervals.append((int(block.start.strftime("%H%M")) // 100 * 60 + int(block.start.strftime("%H%M")) % 100,
+                                 int(block.end.strftime("%H%M")) // 100 * 60 + int(block.end.strftime("%H%M")) % 100))
+
+    occupied = sorted(interval for interval in occupied_intervals if interval[1] > interval[0])
+    candidates = [(start_limit, end_limit)]
+
+    for block_start, block_end in occupied:
+        if block_end <= start_limit or block_start >= end_limit:
+            continue
+        next_candidates = []
+        for candidate_start, candidate_end in candidates:
+            if block_end <= candidate_start or block_start >= candidate_end:
+                next_candidates.append((candidate_start, candidate_end))
+                continue
+            if candidate_start < block_start:
+                next_candidates.append((candidate_start, min(block_start, candidate_end)))
+            if block_end < candidate_end:
+                next_candidates.append((max(block_end, candidate_start), candidate_end))
+        candidates = next_candidates
+
+    for candidate_start, candidate_end in sorted(candidates):
+        if candidate_end - candidate_start >= duration_minutes:
+            return candidate_start, candidate_start + duration_minutes
+    return None
+
+
+def schedule_block(
+    items: List[Dict[str, Any]],
+    name: str,
+    category: str,
+    reason: str,
+    duration_minutes: int,
+    window_start: str,
+    window_end: str,
+    busy_blocks: List[TimeBlock],
+) -> None:
+    if duration_minutes <= 0:
+        return
+    slot = find_free_slot(items, busy_blocks, window_start, window_end, duration_minutes)
+    if slot is None:
+        return
+    start_minutes, end_minutes = slot
+    items.append(
+        {
+            "activity_name": name,
+            "category": category,
+            "start_time": _minutes_to_time(start_minutes),
+            "end_time": _minutes_to_time(end_minutes),
+            "duration_minutes": duration_minutes,
+            "reason": reason,
+            "completed": False,
+            "status": "planned",
+        }
+    )
+
+
+def dedupe_and_sort_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    unique = {}
+    for item in items:
+        key = (item.get("activity_name"), item.get("start_time"), item.get("end_time"))
+        if key in unique:
+            continue
+        unique[key] = item
+    return sorted(unique.values(), key=lambda entry: (_to_minutes(entry.get("start_time") or "00:00"), entry.get("activity_name", "")))
+
+
 def get_or_create_preference(db: Session) -> Preference:
     pref = db.query(Preference).first()
     if pref is None:
@@ -208,7 +355,7 @@ def generate_schedule_from_profile(profile: Dict[str, Any], busy_blocks: List[Ti
         return {"schedule": {"items": []}, "validation": validation, "feasible": False}
 
     items = []
-    for entry in plan:
+    for entry in sorted(plan, key=lambda item: item.start):
         items.append(
             {
                 "activity_name": entry.activity_name,
@@ -218,16 +365,16 @@ def generate_schedule_from_profile(profile: Dict[str, Any], busy_blocks: List[Ti
                 "duration_minutes": entry.duration_minutes,
                 "reason": entry.reason,
                 "completed": False,
+                "status": "planned",
             }
         )
 
     daily_routine = build_daily_routine(profile, plan, busy_blocks)
-
     return {
         "schedule": {
             "title": f"{profile['goal']} plan",
             "date": day.isoformat(),
-            "total_minutes": validation["total_minutes"],
+            "total_minutes": sum(item["duration_minutes"] for item in daily_routine),
             "status": "generated",
             "user_goal": profile["goal"],
             "notes": "AI-generated plan based on constraints and preferences.",
@@ -293,9 +440,22 @@ async def save_preferences(payload: PreferenceUpdate, db: Session = Depends(get_
     return {"message": "Preferences saved successfully.", "preferences": serialize_preference(pref)}
 
 
+@app.post("/api/schedules/clear")
+async def clear_current_schedule(db: Session = Depends(get_db)):
+    latest = get_latest_schedule(db)
+    if not latest:
+        return {"message": "No generated plan to clear."}
+
+    db.query(ScheduleItem).filter(ScheduleItem.schedule_id == latest.id).delete()
+    db.delete(latest)
+    db.commit()
+    return {"message": "Plan cleared successfully."}
+
+
 @app.post("/api/schedules/generate")
 async def generate_schedule(payload: Dict[str, Any], db: Session = Depends(get_db)):
     try:
+        validate_schedule_inputs(payload)
         profile = normalize_profile_payload(payload)
         busy_blocks = build_busy_blocks(payload)
         result = generate_schedule_from_profile(profile, busy_blocks)
@@ -614,7 +774,7 @@ def to_minutes(value: str) -> int:
     if not value:
         return 0
     try:
-        hour, minute = value.split(":")
+        hour, minute = str(value).split(":", 1)
         return int(hour) * 60 + int(minute)
     except ValueError:
         return 0
@@ -642,11 +802,7 @@ def add_time_slot(items: List[Dict[str, Any]], start: str, end: str, name: str, 
 def build_daily_routine(profile: Dict[str, Any], plan: List[Any], busy_blocks: List[TimeBlock]) -> List[Dict[str, Any]]:
     wake = profile.get("day_start") or "07:00"
     sleep = profile.get("day_end") or "23:00"
-    current_day = profile.get("day", date.today())
     base_items: List[Dict[str, Any]] = []
-
-    add_time_slot(base_items, wake, "07:30", "Morning routine", "routine", "Wake up, hydrate, and ease into the day.")
-    add_time_slot(base_items, "07:30", "08:00", "Breakfast", "nutrition", "Light, nourishing breakfast to support focus and energy.")
 
     for entry in plan:
         base_items.append(
@@ -662,33 +818,30 @@ def build_daily_routine(profile: Dict[str, Any], plan: List[Any], busy_blocks: L
             }
         )
 
-    work_start = profile.get("work_start")
-    work_end = profile.get("work_end")
-    if work_start and work_end:
-        add_time_slot(base_items, work_start, work_end, "Work / study block", "focus", "Protected focus time for your job or study commitments.")
+    study_duration = max(int(profile.get("study_duration") or 0), 0)
+    if study_duration > 0:
+        schedule_block(
+            base_items,
+            "Study block",
+            "focus",
+            "Focused study time using the duration from your planner settings.",
+            study_duration,
+            wake,
+            sleep,
+            busy_blocks,
+        )
 
-    add_time_slot(base_items, "12:15", "13:00", "Lunch", "nutrition", "Lunch break and recovery time.")
-    add_time_slot(base_items, "15:00", "15:15", "Hydration break", "break", "Quick hydration and reset break.")
-    add_time_slot(base_items, "18:30", "19:15", "Dinner", "nutrition", "Evening meal and wind-down routine.")
-    add_time_slot(base_items, "19:30", "20:15", "Personal time", "recovery", "Unstructured time for rest, hobbies, or family.")
-    add_time_slot(base_items, "20:30", "21:00", "Evening relaxation", "recovery", "Low-stimulation wind-down to support restful sleep.")
-    add_time_slot(base_items, "21:00", sleep, "Sleep routine", "sleep", "Prepare for sleep and protect your overnight recovery.")
+    break_duration = max(int(profile.get("break_duration") or 0), 0)
+    if break_duration > 0:
+        schedule_block(
+            base_items,
+            "Recovery break",
+            "break",
+            "Short reset to keep your plan sustainable and realistic.",
+            break_duration,
+            wake,
+            sleep,
+            busy_blocks,
+        )
 
-    normalized: List[Dict[str, Any]] = []
-    seen = set()
-    for item in sorted(base_items, key=lambda x: (to_minutes(x["start_time"]), x["activity_name"])):
-        key = (item["activity_name"], item["start_time"], item["end_time"])
-        if key in seen:
-            continue
-        seen.add(key)
-        normalized.append(item)
-
-    for block in busy_blocks:
-        block_start = block.start.strftime("%H:%M")
-        block_end = block.end.strftime("%H:%M")
-        for item in normalized:
-            if item["start_time"] == block_start and item["end_time"] == block_end:
-                item["category"] = "busy"
-                item["reason"] = block.label
-
-    return normalized
+    return dedupe_and_sort_items(base_items)

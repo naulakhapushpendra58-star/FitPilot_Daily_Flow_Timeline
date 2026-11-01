@@ -173,6 +173,9 @@
           flex: 1; background: rgba(148,163,184,0.05); border: 1px solid var(--border); color: white; border-radius: 12px; padding: 10px 8px;
         }
       }
+      .view-section { display: none; }
+      .view-section.active { display: block; }
+      .nav-item.active, .mobile-nav button.active { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.32); color: white; }
     </style>
   </head>
   <body>
@@ -180,64 +183,72 @@
       <aside class="sidebar">
         <div class="brand"><div class="brand-badge">F</div> FitPilot</div>
         <nav class="nav">
-          <button class="nav-item active">Dashboard</button>
-          <button class="nav-item">Planner</button>
-          <button class="nav-item">Schedule</button>
-          <button class="nav-item">AI Coach</button>
-          <button class="nav-item">Preferences</button>
-          <button class="nav-item">Responsible AI</button>
+          <button class="nav-item active" data-view="dashboard" type="button">Dashboard</button>
+          <button class="nav-item" data-view="planner" type="button">Planner</button>
+          <button class="nav-item" data-view="schedule" type="button">Schedule</button>
+          <button class="nav-item" data-view="coach" type="button">AI Coach</button>
+          <button class="nav-item" data-view="preferences" type="button">Preferences</button>
+          <button class="nav-item" data-view="responsible" type="button">Responsible AI</button>
         </nav>
       </aside>
 
       <main class="main">
-        <div class="topbar">
-          <h1>Daily Flow Timeline</h1>
-          <div class="userchip" id="statusChip">Loading wellness plan...</div>
-        </div>
+        <div id="appMessages" class="empty-state" style="display:none; margin-bottom:16px;"></div>
 
-        <section class="hero">
-          <div class="panel hero-copy">
-            <h2>Build a smarter rhythm for your day.</h2>
-            <p>Turn your goals, commitments, and available time into a realistic daily plan with movement, recovery, focus, and rest.</p>
-            <div class="hero-actions">
-              <button class="btn primary" id="generateBtn">Generate plan</button>
-              <button class="btn secondary" id="regenerateBtn">Regenerate</button>
+        <section id="dashboard-view" class="view-section active">
+          <div class="topbar">
+            <h1>Daily Flow Timeline</h1>
+            <div class="userchip" id="statusChip">Loading wellness plan...</div>
+          </div>
+
+          <div class="hero">
+            <div class="panel hero-copy">
+              <h2>Build a smarter rhythm for your day.</h2>
+              <p>Turn your goals, commitments, and available time into a realistic daily plan with movement, recovery, focus, and rest.</p>
+              <div class="hero-actions">
+                <button class="btn primary" id="generateBtn" type="button">Generate plan</button>
+                <button class="btn secondary" id="clearPlanBtn" type="button">Clear Plan</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="section-title">Current focus</div>
+              <div class="stat-card">
+                <div class="stat-label">Today’s progress</div>
+                <div class="stat-number" id="progressOverview">0%</div>
+              </div>
             </div>
           </div>
-          <div class="panel">
-            <div class="section-title">Current focus</div>
+
+          <div class="stats-grid">
             <div class="stat-card">
-              <div class="stat-label">Today’s progress</div>
-              <div class="stat-number" id="progressOverview">0%</div>
+              <div class="stat-label">Planned minutes</div>
+              <div class="stat-number" id="plannedMinutes">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Active blocks</div>
+              <div class="stat-number" id="activeBlocks">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Break time</div>
+              <div class="stat-number" id="breakTime">0m</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Progress</div>
+              <div class="stat-number" id="productivity">0%</div>
             </div>
           </div>
-        </section>
 
-        <section class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">Planned minutes</div>
-            <div class="stat-number" id="plannedMinutes">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Active blocks</div>
-            <div class="stat-number" id="activeBlocks">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Break time</div>
-            <div class="stat-number" id="breakTime">0m</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Progress</div>
-            <div class="stat-number" id="productivity">0%</div>
-          </div>
-        </section>
-
-        <section class="content-grid">
           <div class="panel">
             <div class="section-title">Daily activity timeline</div>
             <div class="timeline" id="timeline"></div>
           </div>
+        </section>
 
+        <section id="planner-view" class="view-section">
+          <div class="topbar">
+            <h1>Planner</h1>
+            <div class="userchip">Customize your plan</div>
+          </div>
           <div class="panel">
             <div class="section-title">Generate a plan</div>
             <form class="build-form" id="plannerForm">
@@ -304,12 +315,26 @@
                 <div><label>Study duration</label><input id="study_duration" type="number" min="15" max="180" value="45" /></div>
               </div>
 
-              <button class="btn primary" type="submit">Generate schedule</button>
+              <button class="btn primary" type="submit" id="plannerSubmitBtn">Generate schedule</button>
             </form>
           </div>
         </section>
 
-        <section class="content-grid" style="margin-top: 18px;">
+        <section id="schedule-view" class="view-section">
+          <div class="topbar">
+            <h1>Schedule</h1>
+            <div class="userchip">Full generated day</div>
+          </div>
+          <div class="panel">
+            <div class="timeline" id="fullScheduleTimeline"></div>
+          </div>
+        </section>
+
+        <section id="coach-view" class="view-section">
+          <div class="topbar">
+            <h1>AI Coach</h1>
+            <div class="userchip">Wellness guidance</div>
+          </div>
           <div class="panel">
             <div class="section-title">AI Coach</div>
             <div class="chat-window">
@@ -318,37 +343,93 @@
               <div class="question-list" id="recommendedQuestions"></div>
               <div style="display:flex; gap:10px; margin-top:auto;">
                 <input id="chatInput" type="text" placeholder="Ask about your plan..." />
-                <button class="btn primary" id="sendChatBtn">Send</button>
+                <button class="btn primary" id="sendChatBtn" type="button">Send</button>
               </div>
             </div>
           </div>
+        </section>
+
+        <section id="preferences-view" class="view-section">
+          <div class="topbar">
+            <h1>Preferences</h1>
+            <div class="userchip">Your saved habits</div>
+          </div>
           <div class="panel">
-            <div class="section-title">Progress</div>
-            <div class="canvas-wrap"><canvas id="progressChart"></canvas></div>
+            <form class="build-form" id="preferencesForm">
+              <div class="row">
+                <div>
+                  <label>Goal</label>
+                  <select id="preferencesGoal">
+                    <option>Build consistency</option>
+                    <option>Improve flexibility</option>
+                    <option>Stay active</option>
+                    <option>Improve endurance</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Experience</label>
+                  <select id="preferencesExperience">
+                    <option>Beginner</option>
+                    <option>Intermediate</option>
+                    <option>Advanced</option>
+                  </select>
+                </div>
+              </div>
+              <div class="row">
+                <div><label>Wake time</label><input id="preferencesWake" type="time" value="07:00" /></div>
+                <div><label>Sleep time</label><input id="preferencesSleep" type="time" value="23:00" /></div>
+              </div>
+              <div class="row">
+                <div><label>Available minutes</label><input id="preferencesAvailable" type="number" min="30" max="300" value="120" /></div>
+                <div><label>Target duration</label><input id="preferencesTarget" type="number" min="5" max="60" value="20" /></div>
+              </div>
+              <button type="button" class="btn primary" id="savePreferencesBtn">Save preferences</button>
+            </form>
+          </div>
+        </section>
+
+        <section id="responsible-view" class="view-section">
+          <div class="topbar">
+            <h1>Responsible AI</h1>
+            <div class="userchip">Guardrails and transparency</div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Responsible AI</div>
+            <p>FitPilot combines explicit planning rules with grounded explanations to keep the routine transparent and explainable. It is designed for general wellness guidance, not medical diagnosis or treatment.</p>
+            <ul>
+              <li>Schedules are validated against user time constraints and work blocks.</li>
+              <li>Selected preferences and activities influence the plan without overriding hard constraints.</li>
+              <li>AI explanations are grounded in the actual activity library and the current schedule.</li>
+              <li>Users should choose activities appropriate to their conditions and stop if they feel pain or discomfort.</li>
+            </ul>
           </div>
         </section>
       </main>
     </div>
 
     <div class="mobile-nav">
-      <button>Dashboard</button>
-      <button>Plan</button>
-      <button>Coach</button>
-      <button>Profile</button>
+      <button type="button" data-view="dashboard">Dashboard</button>
+      <button type="button" data-view="planner">Planner</button>
+      <button type="button" data-view="coach">Coach</button>
+      <button type="button" data-view="preferences">Prefs</button>
     </div>
 
     <script>
       const timeline = document.getElementById('timeline');
+      const fullScheduleTimeline = document.getElementById('fullScheduleTimeline');
       const chatMessages = document.getElementById('chatMessages');
       const recommendedQuestions = document.getElementById('recommendedQuestions');
       const plannerForm = document.getElementById('plannerForm');
       const generateBtn = document.getElementById('generateBtn');
-      const regenerateBtn = document.getElementById('regenerateBtn');
       const sendChatBtn = document.getElementById('sendChatBtn');
       const chatInput = document.getElementById('chatInput');
       const preferredActivitiesSelect = document.getElementById('preferredActivities');
       const selectedActivitiesEl = document.getElementById('selectedActivities');
       const statusChip = document.getElementById('statusChip');
+      const clearPlanBtn = document.getElementById('clearPlanBtn');
+      const appMessages = document.getElementById('appMessages');
+      const savePreferencesBtn = document.getElementById('savePreferencesBtn');
+      const plannerSubmitBtn = document.getElementById('plannerSubmitBtn');
 
       const questionList = [
         'Create my complete daily routine',
@@ -362,6 +443,38 @@
       let activeSchedule = null;
       let progressChart = null;
       let isSending = false;
+      let isGenerating = false;
+      let activeView = 'dashboard';
+
+      function showMessage(text, tone = 'info') {
+        appMessages.textContent = text;
+        appMessages.style.display = 'block';
+        appMessages.style.borderColor = tone === 'error' ? 'rgba(248,113,113,0.4)' : 'rgba(52,211,153,0.35)';
+        appMessages.style.background = tone === 'error' ? 'rgba(127,29,29,0.18)' : 'rgba(20,83,45,0.18)';
+        appMessages.style.color = '#f8fafc';
+      }
+
+      function clearMessage() {
+        appMessages.textContent = '';
+        appMessages.style.display = 'none';
+      }
+
+      function setActiveView(viewName) {
+        activeView = viewName;
+        document.querySelectorAll('.view-section').forEach((section) => {
+          section.classList.toggle('active', section.id === `${viewName}-view`);
+          section.style.display = section.id === `${viewName}-view` ? 'block' : 'none';
+        });
+        document.querySelectorAll('.nav-item').forEach((button) => {
+          button.classList.toggle('active', button.dataset.view === viewName);
+        });
+        document.querySelectorAll('.mobile-nav button').forEach((button) => {
+          button.classList.toggle('active', button.dataset.view === viewName);
+        });
+        if (window.history && window.history.pushState) {
+          window.history.pushState({}, '', `#${viewName}`);
+        }
+      }
 
       function setChatLoading(loading) {
         isSending = loading;
@@ -422,6 +535,179 @@
         renderSelectedActivities();
       }
 
+      function getFormValues() {
+        return {
+          goal: document.getElementById('goal').value,
+          experience: document.getElementById('experience').value,
+          preferred_activities: getSelectedActivities(),
+          preferred_activity: getSelectedActivities()[0] || 'Walking',
+          wake_time: document.getElementById('wake_time').value,
+          sleep_time: document.getElementById('sleep_time').value,
+          work_start: document.getElementById('work_start').value,
+          work_end: document.getElementById('work_end').value,
+          available_minutes: Number(document.getElementById('available_minutes').value),
+          target_duration: Number(document.getElementById('target_duration').value),
+          break_duration: Number(document.getElementById('break_duration').value),
+          study_duration: Number(document.getElementById('study_duration').value),
+        };
+      }
+
+      async function savePreferencesFromForm() {
+        const selected = getSelectedActivities();
+        const preferences = {
+          goal: document.getElementById('goal').value,
+          preferred_activities: selected,
+          preferred_activity: selected[0] || 'Walking',
+          experience: document.getElementById('experience').value,
+          wake_time: document.getElementById('wake_time').value,
+          sleep_time: document.getElementById('sleep_time').value,
+          work_start: document.getElementById('work_start').value,
+          work_end: document.getElementById('work_end').value,
+          available_minutes: Number(document.getElementById('available_minutes').value),
+          target_duration: Number(document.getElementById('target_duration').value),
+          break_duration: Number(document.getElementById('break_duration').value),
+          study_duration: Number(document.getElementById('study_duration').value),
+          productivity_goal: 'Stay focused and balanced',
+          priorities: 'Health, focus, recovery'
+        };
+
+        const response = await fetch('/api/preferences', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(preferences)
+        });
+
+        if (!response.ok) {
+          throw new Error('Unable to save preferences.');
+        }
+      }
+
+      function getScheduleMetrics(scheduleData) {
+        const items = scheduleData?.items || [];
+        const totalMinutes = scheduleData?.total_minutes || items.reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0);
+        const completed = items.filter((item) => item.completed).length;
+        const total = items.length;
+        const breakMinutes = items.filter((item) => ['break', 'recovery', 'relaxation', 'rest'].includes(String(item.category || '').toLowerCase())).reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0);
+        const progress = total ? Math.round((completed / total) * 100) : 0;
+        return { totalMinutes, completed, total, breakMinutes, progress };
+      }
+
+      function updateStats(scheduleData, statsOverride = null) {
+        const items = scheduleData?.items || [];
+        const derived = getScheduleMetrics(scheduleData);
+        const totalMinutes = statsOverride?.total_minutes ?? derived.totalMinutes;
+        const completed = statsOverride?.completed_count ?? derived.completed;
+        const total = statsOverride?.activity_count ?? derived.total;
+        const breakMinutes = statsOverride?.break_minutes ?? derived.breakMinutes;
+        const progress = statsOverride?.progress_pct ?? derived.progress;
+
+        document.getElementById('plannedMinutes').textContent = totalMinutes;
+        document.getElementById('activeBlocks').textContent = total;
+        document.getElementById('breakTime').textContent = `${breakMinutes}m`;
+        document.getElementById('productivity').textContent = `${Math.round(progress)}%`;
+        document.getElementById('progressOverview').textContent = `${Math.round(progress)}%`;
+
+        if (progressChart) {
+          progressChart.data.datasets[0].data = [completed, Math.max(0, total - completed)];
+          progressChart.update();
+        }
+      }
+
+      function initChart() {
+        const ctx = document.getElementById('progressChart');
+        if (!ctx) return;
+        progressChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Completed', 'Remaining'],
+            datasets: [{ data: [0, 1], backgroundColor: ['#8b5cf6', '#1f2937'] }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#e2e8f0' } } }
+          }
+        });
+      }
+
+      function renderTimeline(items, container = timeline) {
+        container.innerHTML = '';
+        const list = items || [];
+        if (!list.length) {
+          container.innerHTML = '<div class="empty-state">No schedule generated yet. Set your goals and click Generate plan.</div>';
+          return;
+        }
+
+        list.forEach((item) => {
+          const row = document.createElement('div');
+          row.className = 'timeline-item';
+          const isDone = !!item.completed;
+          const isSkipped = item.status === 'skipped';
+          const status = isDone ? 'done' : (isSkipped ? 'skipped' : 'pending');
+          const badgeText = isDone ? 'Done' : (isSkipped ? 'Skipped' : 'Planned');
+          row.innerHTML = `
+            <div class="time-badge">${item.start_time}</div>
+            <div>
+              <h4>${item.activity_name}</h4>
+              <p>${item.reason || 'Well-paced activity block'}</p>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+              <span class="status-pill ${status}">${badgeText}</span>
+              <div style="display:flex; gap:6px;">
+                <button class="btn ghost" data-action="complete" data-id="${item.id}" style="padding:8px 10px; font-size:0.75rem;">Complete</button>
+                <button class="btn ghost" data-action="skip" data-id="${item.id}" style="padding:8px 10px; font-size:0.75rem;">Skip</button>
+              </div>
+            </div>
+          `;
+          const completeBtn = row.querySelector('[data-action="complete"]');
+          const skipBtn = row.querySelector('[data-action="skip"]');
+          completeBtn.addEventListener('click', () => toggleActivity(item.id, 'complete'));
+          skipBtn.addEventListener('click', () => toggleActivity(item.id, 'skip'));
+          container.appendChild(row);
+        });
+      }
+
+      async function loadDashboard() {
+        try {
+          const response = await fetch('/api/dashboard');
+          if (!response.ok) throw new Error('Dashboard load failed');
+          const data = await response.json();
+          const prefs = data.preferences || {};
+          const schedule = data.schedule || null;
+          const stats = data.stats || {};
+
+          if (prefs.goal) document.getElementById('goal').value = prefs.goal;
+          if (prefs.experience) document.getElementById('experience').value = prefs.experience;
+          if (prefs.wake_time) document.getElementById('wake_time').value = prefs.wake_time;
+          if (prefs.sleep_time) document.getElementById('sleep_time').value = prefs.sleep_time;
+          if (prefs.work_start) document.getElementById('work_start').value = prefs.work_start;
+          if (prefs.work_end) document.getElementById('work_end').value = prefs.work_end;
+          if (prefs.available_minutes) document.getElementById('available_minutes').value = prefs.available_minutes;
+          if (prefs.target_duration) document.getElementById('target_duration').value = prefs.target_duration;
+          if (prefs.break_duration) document.getElementById('break_duration').value = prefs.break_duration;
+          if (prefs.study_duration) document.getElementById('study_duration').value = prefs.study_duration;
+
+          document.getElementById('preferencesGoal').value = prefs.goal || 'Build consistency';
+          document.getElementById('preferencesExperience').value = prefs.experience || 'Beginner';
+          document.getElementById('preferencesWake').value = prefs.wake_time || '07:00';
+          document.getElementById('preferencesSleep').value = prefs.sleep_time || '23:00';
+          document.getElementById('preferencesAvailable').value = prefs.available_minutes || 120;
+          document.getElementById('preferencesTarget').value = prefs.target_duration || 20;
+
+          const selected = Array.isArray(prefs.preferred_activities) ? prefs.preferred_activities : [];
+          syncCheckboxes(selected.length ? selected : ['Walking', 'Stretching']);
+
+          activeSchedule = schedule;
+          renderTimeline(schedule?.items || [], timeline);
+          renderTimeline(schedule?.items || [], fullScheduleTimeline);
+          updateStats(schedule, stats);
+          statusChip.textContent = schedule ? 'Plan ready' : 'No plan generated yet';
+        } catch (error) {
+          console.error(error);
+          statusChip.textContent = 'Unable to load wellness plan';
+        }
+      }
+
       async function sendChat() {
         const value = chatInput.value.trim();
         if (!value || isSending) return;
@@ -447,171 +733,103 @@
         }
       }
 
-      function updateStats(scheduleData, stats) {
-        const items = scheduleData?.items || [];
-        const totalMinutes = stats?.total_minutes || scheduleData?.total_minutes || 0;
-        const completed = stats?.completed_count || 0;
-        const total = items.length || 0;
-        const percent = stats?.progress_pct || 0;
-        const breakMinutes = stats?.break_minutes || 0;
-
-        document.getElementById('plannedMinutes').textContent = totalMinutes;
-        document.getElementById('activeBlocks').textContent = total;
-        document.getElementById('breakTime').textContent = `${breakMinutes}m`;
-        document.getElementById('productivity').textContent = `${Math.round(percent)}%`;
-        document.getElementById('progressOverview').textContent = `${Math.round(percent)}%`;
-
-        if (progressChart) {
-          progressChart.data.datasets[0].data = [completed, Math.max(0, total - completed)];
-          progressChart.update();
+      async function generatePlan() {
+        if (isGenerating) return;
+        const values = getFormValues();
+        const selected = values.preferred_activities;
+        if (!selected.length) {
+          showMessage('Select at least one preferred activity before generating a schedule.', 'error');
+          return;
         }
-      }
 
-      function initChart() {
-        const ctx = document.getElementById('progressChart');
-        progressChart = new Chart(ctx, {
-          type: 'doughnut',
-          data: {
-            labels: ['Completed', 'Remaining'],
-            datasets: [{ data: [0, 1], backgroundColor: ['#8b5cf6', '#1f2937'] }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: '#e2e8f0' } } }
-          }
-        });
-      }
+        isGenerating = true;
+        plannerSubmitBtn.disabled = true;
+        generateBtn.disabled = true;
+        plannerSubmitBtn.textContent = 'Generating...';
+        showMessage('Generating your schedule...', 'info');
 
-      async function loadDashboard() {
         try {
-          const response = await fetch('/api/dashboard');
-          if (!response.ok) throw new Error('Dashboard load failed');
+          await savePreferencesFromForm();
+          const payload = {
+            day: new Date().toISOString().slice(0, 10),
+            goal: values.goal,
+            preference: selected.join(', '),
+            preferred_activities: selected,
+            preferred_activity: values.preferred_activity,
+            experience: values.experience,
+            available_minutes: Number(values.available_minutes),
+            target_duration: Number(values.target_duration),
+            wake_time: values.wake_time,
+            sleep_time: values.sleep_time,
+            work_start: values.work_start,
+            work_end: values.work_end,
+            break_duration: Number(values.break_duration),
+            study_duration: Number(values.study_duration)
+          };
+
+          const response = await fetch('/api/schedules/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
           const data = await response.json();
-          const prefs = data.preferences || {};
-          const schedule = data.schedule || null;
-          const stats = data.stats || {};
+          if (!response.ok) {
+            throw new Error(data.detail || 'Unable to generate a schedule.');
+          }
 
-          if (prefs.goal) document.getElementById('goal').value = prefs.goal;
-          if (prefs.experience) document.getElementById('experience').value = prefs.experience;
-          if (prefs.wake_time) document.getElementById('wake_time').value = prefs.wake_time;
-          if (prefs.sleep_time) document.getElementById('sleep_time').value = prefs.sleep_time;
-          if (prefs.work_start) document.getElementById('work_start').value = prefs.work_start;
-          if (prefs.work_end) document.getElementById('work_end').value = prefs.work_end;
-          if (prefs.available_minutes) document.getElementById('available_minutes').value = prefs.available_minutes;
-          if (prefs.target_duration) document.getElementById('target_duration').value = prefs.target_duration;
-          if (prefs.break_duration) document.getElementById('break_duration').value = prefs.break_duration;
-          if (prefs.study_duration) document.getElementById('study_duration').value = prefs.study_duration;
-
-          const selected = Array.isArray(prefs.preferred_activities) ? prefs.preferred_activities : [];
-          syncCheckboxes(selected.length ? selected : ['Walking', 'Stretching']);
-
-          activeSchedule = schedule;
-          renderTimeline(schedule?.items || []);
-          updateStats(schedule, stats);
-          statusChip.textContent = schedule ? 'Plan ready' : 'No plan generated yet';
+          activeSchedule = data.schedule;
+          renderTimeline(activeSchedule.items || [], timeline);
+          renderTimeline(activeSchedule.items || [], fullScheduleTimeline);
+          updateStats(activeSchedule, {
+            total_minutes: activeSchedule.total_minutes,
+            completed_count: 0,
+            activity_count: (activeSchedule.items || []).length,
+            break_minutes: (activeSchedule.items || []).filter((item) => ['break', 'recovery', 'relaxation', 'rest'].includes(String(item.category || '').toLowerCase())).reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0),
+            progress_pct: 0,
+          });
+          statusChip.textContent = 'Plan generated';
+          showMessage('Your daily schedule was generated successfully.', 'success');
+          setActiveView('schedule');
         } catch (error) {
           console.error(error);
-          statusChip.textContent = 'Unable to load wellness plan';
+          showMessage(error.message || 'Unable to generate a schedule.', 'error');
+          statusChip.textContent = 'Schedule generation failed';
+        } finally {
+          isGenerating = false;
+          plannerSubmitBtn.disabled = false;
+          generateBtn.disabled = false;
+          plannerSubmitBtn.textContent = 'Generate schedule';
         }
       }
 
-      function renderTimeline(items) {
-        timeline.innerHTML = '';
-        if (!items || !items.length) {
-          timeline.innerHTML = '<div class="empty-state">No schedule generated yet. Set your goals and click Generate plan.</div>';
+      async function clearPlan() {
+        if (!activeSchedule && !(await fetch('/api/dashboard').then((res) => res.ok && res.json().then((data) => data.schedule)))) {
+          showMessage('There is no active plan to clear.', 'error');
           return;
         }
 
-        items.forEach((item) => {
-          const row = document.createElement('div');
-          row.className = 'timeline-item';
-          const status = item.completed ? 'done' : (item.status === 'skipped' ? 'skipped' : 'pending');
-          const badgeText = item.completed ? 'Done' : (item.status === 'skipped' ? 'Skipped' : 'Planned');
-          row.innerHTML = `
-            <div class="time-badge">${item.start_time}</div>
-            <div>
-              <h4>${item.activity_name}</h4>
-              <p>${item.reason || 'Well-paced activity block'}</p>
-            </div>
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-              <span class="status-pill ${status}">${badgeText}</span>
-              <div style="display:flex; gap:6px;">
-                <button class="btn ghost" data-action="complete" data-id="${item.id}" style="padding:8px 10px; font-size:0.75rem;">Complete</button>
-                <button class="btn ghost" data-action="skip" data-id="${item.id}" style="padding:8px 10px; font-size:0.75rem;">Skip</button>
-              </div>
-            </div>
-          `;
-          row.querySelector('[data-action="complete"]').addEventListener('click', () => toggleActivity(item.id, 'complete'));
-          row.querySelector('[data-action="skip"]').addEventListener('click', () => toggleActivity(item.id, 'skip'));
-          timeline.appendChild(row);
-        });
-      }
+        const confirmed = window.confirm('Clear the current generated plan? This removes the active schedule and resets the dashboard metrics.');
+        if (!confirmed) return;
 
-      async function savePreferencesFromForm() {
-        const selected = getSelectedActivities();
-        const preferences = {
-          goal: document.getElementById('goal').value,
-          preferred_activities: selected,
-          preferred_activity: selected[0] || 'Walking',
-          experience: document.getElementById('experience').value,
-          wake_time: document.getElementById('wake_time').value,
-          sleep_time: document.getElementById('sleep_time').value,
-          work_start: document.getElementById('work_start').value,
-          work_end: document.getElementById('work_end').value,
-          available_minutes: Number(document.getElementById('available_minutes').value),
-          target_duration: Number(document.getElementById('target_duration').value),
-          break_duration: Number(document.getElementById('break_duration').value),
-          study_duration: Number(document.getElementById('study_duration').value),
-          productivity_goal: 'Stay focused and balanced',
-          priorities: 'Health, focus, recovery'
-        };
+        try {
+          const response = await fetch('/api/schedules/clear', { method: 'POST' });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || 'Unable to clear the plan.');
+          }
 
-        await fetch('/api/preferences', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(preferences)
-        });
-      }
-
-      async function generatePlan() {
-        await savePreferencesFromForm();
-        const selected = getSelectedActivities();
-        const payload = {
-          day: new Date().toISOString().slice(0, 10),
-          goal: document.getElementById('goal').value,
-          preference: selected.join(', '),
-          preferred_activities: selected,
-          preferred_activity: selected[0] || 'Walking',
-          experience: document.getElementById('experience').value,
-          available_minutes: Number(document.getElementById('available_minutes').value),
-          target_duration: Number(document.getElementById('target_duration').value),
-          wake_time: document.getElementById('wake_time').value,
-          sleep_time: document.getElementById('sleep_time').value,
-          work_start: document.getElementById('work_start').value,
-          work_end: document.getElementById('work_end').value,
-          break_duration: Number(document.getElementById('break_duration').value),
-          study_duration: Number(document.getElementById('study_duration').value)
-        };
-
-        const response = await fetch('/api/schedules/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          appendChat('assistant', data.detail || 'Unable to generate a schedule.');
-          return;
+          activeSchedule = null;
+          renderTimeline([], timeline);
+          renderTimeline([], fullScheduleTimeline);
+          updateStats(null, { total_minutes: 0, completed_count: 0, activity_count: 0, break_minutes: 0, progress_pct: 0 });
+          statusChip.textContent = 'No plan generated yet';
+          showMessage(data.message || 'Plan cleared successfully.', 'success');
+          await loadDashboard();
+        } catch (error) {
+          console.error(error);
+          showMessage(error.message || 'Unable to clear the plan.', 'error');
         }
-
-        activeSchedule = data.schedule;
-        renderTimeline(activeSchedule.items || []);
-        updateStats(activeSchedule, data.schedule ? { total_minutes: data.schedule.total_minutes, completed_count: 0, break_minutes: 0, progress_pct: 0 } : {});
-        statusChip.textContent = 'Plan generated';
-        appendChat('assistant', data.explanation || 'Your plan has been generated successfully.');
-        await loadDashboard();
       }
 
       async function toggleActivity(itemId, action) {
@@ -619,16 +837,24 @@
         const response = await fetch(endpoint, { method: 'PATCH' });
         if (response.ok) {
           await loadDashboard();
+          showMessage(action === 'complete' ? 'Activity marked complete.' : 'Activity skipped.', 'success');
         }
       }
+
+      document.querySelectorAll('.nav-item').forEach((button) => {
+        button.addEventListener('click', () => setActiveView(button.dataset.view));
+      });
+      document.querySelectorAll('.mobile-nav button').forEach((button) => {
+        button.addEventListener('click', () => setActiveView(button.dataset.view));
+      });
 
       plannerForm.addEventListener('submit', (event) => {
         event.preventDefault();
         generatePlan();
       });
 
-      generateBtn.addEventListener('click', generatePlan);
-      regenerateBtn.addEventListener('click', generatePlan);
+      generateBtn.addEventListener('click', () => generatePlan());
+      clearPlanBtn.addEventListener('click', clearPlan);
       sendChatBtn.addEventListener('click', (event) => {
         event.preventDefault();
         sendChat();
@@ -642,6 +868,40 @@
       preferredActivitiesSelect.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
         checkbox.addEventListener('change', renderSelectedActivities);
       });
+      savePreferencesBtn.addEventListener('click', async () => {
+        try {
+          await savePreferencesFromForm();
+          showMessage('Preferences saved successfully.', 'success');
+        } catch (error) {
+          showMessage(error.message || 'Unable to save preferences.', 'error');
+        }
+      });
+
+      document.getElementById('goal').addEventListener('change', () => {
+        document.getElementById('preferencesGoal').value = document.getElementById('goal').value;
+      });
+      document.getElementById('experience').addEventListener('change', () => {
+        document.getElementById('preferencesExperience').value = document.getElementById('experience').value;
+      });
+      document.getElementById('wake_time').addEventListener('change', () => {
+        document.getElementById('preferencesWake').value = document.getElementById('wake_time').value;
+      });
+      document.getElementById('sleep_time').addEventListener('change', () => {
+        document.getElementById('preferencesSleep').value = document.getElementById('sleep_time').value;
+      });
+      document.getElementById('available_minutes').addEventListener('input', () => {
+        document.getElementById('preferencesAvailable').value = document.getElementById('available_minutes').value;
+      });
+      document.getElementById('target_duration').addEventListener('input', () => {
+        document.getElementById('preferencesTarget').value = document.getElementById('target_duration').value;
+      });
+
+      const initialHash = window.location.hash.replace('#', '');
+      if (initialHash && document.getElementById(`${initialHash}-view`)) {
+        setActiveView(initialHash);
+      } else {
+        setActiveView('dashboard');
+      }
 
       renderRecommendedQuestions();
       renderSelectedActivities();
