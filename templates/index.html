@@ -12,7 +12,7 @@
         --panel: rgba(17, 24, 39, 0.82);
         --panel-strong: rgba(26, 32, 44, 0.96);
         --card: rgba(15, 23, 42, 0.9);
-        --border: rgba(148, 163, 184, 0.2);
+        --border: rgba(148,163,184,0.2);
         --text: #f8fafc;
         --muted: #a5b4cf;
         --primary: #8b5cf6;
@@ -256,6 +256,16 @@
         border-width: 0 2px 2px 0;
         transform: rotate(45deg);
       }
+      .checkbox-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      @media (max-width: 768px) {
+        .checkbox-grid {
+          grid-template-columns: 1fr;
+        }
+      }
       .checkbox-grid label {
         display: flex;
         align-items: center;
@@ -279,6 +289,9 @@
       }
       .checkbox-grid label span {
         pointer-events: none;
+      }
+      .checkbox-grid input[type="checkbox"] {
+        margin: 0;
       }
       .question-list .chip,
       .chip {
@@ -426,7 +439,6 @@
               <p>Turn your goals, commitments, and available time into a realistic daily plan with movement, recovery, focus, and rest.</p>
               <div class="hero-actions">
                 <button class="btn primary" id="dashboardGeneratePlanBtn" type="button">Generate Plan</button>
-                <button class="btn secondary" id="dashboardRegeneratePlanBtn" type="button">Regenerate Plan</button>
               </div>
             </div>
             <div class="panel">
@@ -480,17 +492,8 @@
           </div>
 
           <div class="panel">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-              <div class="section-title" style="margin:0;">Daily activity timeline</div>
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <label for="dateSelector" class="subtle" style="margin:0;">Date</label>
-                <input id="dateSelector" type="date" value="" style="max-width:170px;" />
-              </div>
-            </div>
+            <div class="section-title">Daily activity timeline</div>
             <div class="timeline" id="timeline"></div>
-            <div class="inline-actions" style="margin-top:18px;">
-              <button class="btn danger" id="clearPlanBtn" type="button" style="display:none;">Clear Plan</button>
-            </div>
           </div>
         </section>
 
@@ -572,9 +575,6 @@
               <div>
                 <div class="section-title" style="margin-bottom: 8px;">Custom routine activities</div>
                 <div class="custom-activities" id="customActivitiesList"></div>
-                <div class="inline-actions" style="margin-top: 10px;">
-                  <button class="btn secondary" type="button" id="addCustomActivityBtn">Add activity</button>
-                </div>
               </div>
 
               <div class="inline-actions">
@@ -649,7 +649,6 @@
       const preferredActivitiesSelect = document.getElementById('preferredActivities');
       const selectedActivitiesEl = document.getElementById('selectedActivities');
       const statusChip = document.getElementById('statusChip');
-      const clearPlanBtn = document.getElementById('clearPlanBtn');
       const clearChatBtn = document.getElementById('clearChatBtn');
       const appMessages = document.getElementById('appMessages');
       const plannerSubmitBtn = document.getElementById('plannerSubmitBtn');
@@ -672,6 +671,7 @@
       let isGenerating = false;
 
       function showMessage(text, tone = 'info') {
+        if (!appMessages) return;
         appMessages.textContent = text;
         appMessages.style.display = 'block';
         appMessages.style.borderColor = tone === 'error' ? 'rgba(248,113,113,0.4)' : 'rgba(52,211,153,0.35)';
@@ -680,6 +680,7 @@
       }
 
       function clearMessage() {
+        if (!appMessages) return;
         appMessages.textContent = '';
         appMessages.style.display = 'none';
       }
@@ -773,7 +774,6 @@
         plannerSubmitBtn.disabled = true;
         plannerSubmitBtn.textContent = 'Generating...';
         dashboardGeneratePlanBtn.disabled = true;
-        dashboardRegeneratePlanBtn.disabled = true;
         clearMessage();
 
         try {
@@ -799,9 +799,8 @@
           activeSchedule = schedule;
           renderTimeline(schedule.items || [], timeline);
           updateStats(schedule, data.stats || null);
-          clearPlanBtn.style.display = schedule.items?.length ? 'inline-flex' : 'none';
           statusChip.textContent = 'Plan ready';
-          showMessage(data.message || 'Schedule generated successfully.', 'success');
+          showMessage('Plan generated successfully!', 'success');
           await savePreferencesFromForm();
           await loadDashboard();
         } catch (error) {
@@ -812,7 +811,6 @@
           plannerSubmitBtn.disabled = false;
           plannerSubmitBtn.textContent = 'Generate Plan';
           dashboardGeneratePlanBtn.disabled = false;
-          dashboardRegeneratePlanBtn.disabled = false;
         }
       }
 
@@ -855,11 +853,12 @@
       }
 
       function getFormValues() {
+        const selected = getSelectedActivities();
         return {
           goal: document.getElementById('goal').value,
           experience: document.getElementById('experience').value,
-          preferred_activities: getSelectedActivities(),
-          preferred_activity: getSelectedActivities()[0] || 'Walking',
+          preferred_activities: selected,
+          preferred_activity: selected[0] || 'Walking',
           wake_time: document.getElementById('wake_time').value,
           sleep_time: document.getElementById('sleep_time').value,
           work_start: document.getElementById('work_start').value,
@@ -952,19 +951,31 @@
         const breakMinutes = statsOverride?.break_minutes ?? items.filter((item) => ['break', 'recovery', 'relaxation', 'rest'].includes(String(item.category || '').toLowerCase())).reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0);
         const progress = statsOverride?.progress_pct ?? (total ? Math.round((completed / total) * 100) : 0);
 
-        document.getElementById('activityCount').textContent = total;
-        document.getElementById('completedCount').textContent = completed;
-        document.getElementById('skippedCount').textContent = skipped;
-        document.getElementById('pendingCount').textContent = pending;
-        document.getElementById('plannedMinutes').textContent = totalMinutes;
-        document.getElementById('breakTime').textContent = `${breakMinutes}m`;
-        document.getElementById('productivity').textContent = `${Math.round(progress)}%`;
-        document.getElementById('progressOverview').textContent = `${Math.round(progress)}%`;
-        document.getElementById('progressBar').style.width = `${Math.min(100, Math.max(0, progress))}%`;
-        document.getElementById('remainingCount').textContent = Math.max(total - completed, 0);
+        const activityCountEl = document.getElementById('activityCount');
+        const completedCountEl = document.getElementById('completedCount');
+        const skippedCountEl = document.getElementById('skippedCount');
+        const pendingCountEl = document.getElementById('pendingCount');
+        const plannedMinutesEl = document.getElementById('plannedMinutes');
+        const breakTimeEl = document.getElementById('breakTime');
+        const productivityEl = document.getElementById('productivity');
+        const progressOverviewEl = document.getElementById('progressOverview');
+        const progressBarEl = document.getElementById('progressBar');
+        const remainingCountEl = document.getElementById('remainingCount');
+
+        if (activityCountEl) activityCountEl.textContent = total;
+        if (completedCountEl) completedCountEl.textContent = completed;
+        if (skippedCountEl) skippedCountEl.textContent = skipped;
+        if (pendingCountEl) pendingCountEl.textContent = pending;
+        if (plannedMinutesEl) plannedMinutesEl.textContent = totalMinutes;
+        if (breakTimeEl) breakTimeEl.textContent = `${breakMinutes}m`;
+        if (productivityEl) productivityEl.textContent = `${Math.round(progress)}%`;
+        if (progressOverviewEl) progressOverviewEl.textContent = `${Math.round(progress)}%`;
+        if (progressBarEl) progressBarEl.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+        if (remainingCountEl) remainingCountEl.textContent = Math.max(total - completed, 0);
       }
 
       function renderTimeline(items, container = timeline) {
+        if (!container) return;
         container.innerHTML = '';
         const list = items || [];
         if (!list.length) {
@@ -973,7 +984,6 @@
         }
 
         const nowMinutes = getCurrentTimeMinutes();
-
         list.forEach((item) => {
           const row = document.createElement('div');
           const startMinutes = item.start_time ? (() => {
@@ -1020,6 +1030,11 @@
         });
       }
 
+      function getSelectedActivities() {
+        if (!preferredActivitiesSelect) return [];
+        return Array.from(preferredActivitiesSelect.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
+      }
+
       async function loadDashboard() {
         try {
           const response = await fetch('/api/dashboard');
@@ -1029,31 +1044,42 @@
           const schedule = data.schedule || null;
           const stats = data.stats || {};
 
-          document.getElementById('goal').value = prefs.goal || 'Build consistency';
-          document.getElementById('experience').value = prefs.experience || 'Beginner';
-          document.getElementById('wake_time').value = prefs.wake_time || '07:00';
-          document.getElementById('sleep_time').value = prefs.sleep_time || '23:00';
-          document.getElementById('work_start').value = prefs.work_start || '09:00';
-          document.getElementById('work_end').value = prefs.work_end || '17:00';
-          document.getElementById('available_minutes').value = prefs.available_minutes || 120;
-          document.getElementById('target_duration').value = prefs.target_duration || 20;
-          document.getElementById('break_duration').value = prefs.break_duration || 15;
-          document.getElementById('study_duration').value = prefs.study_duration || 45;
+          const goalEl = document.getElementById('goal');
+          const experienceEl = document.getElementById('experience');
+          const wakeInput = document.getElementById('wake_time');
+          const sleepInput = document.getElementById('sleep_time');
+          const workStartInput = document.getElementById('work_start');
+          const workEndInput = document.getElementById('work_end');
+          const availableMinutesInput = document.getElementById('available_minutes');
+          const targetDurationInput = document.getElementById('target_duration');
+          const breakDurationInput = document.getElementById('break_duration');
+          const studyDurationInput = document.getElementById('study_duration');
+          if (goalEl) goalEl.value = prefs.goal || 'Build consistency';
+          if (experienceEl) experienceEl.value = prefs.experience || 'Beginner';
+          if (wakeInput) wakeInput.value = prefs.wake_time || '07:00';
+          if (sleepInput) sleepInput.value = prefs.sleep_time || '23:00';
+          if (workStartInput) workStartInput.value = prefs.work_start || '09:00';
+          if (workEndInput) workEndInput.value = prefs.work_end || '17:00';
+          if (availableMinutesInput) availableMinutesInput.value = prefs.available_minutes || 120;
+          if (targetDurationInput) targetDurationInput.value = prefs.target_duration || 20;
+          if (breakDurationInput) breakDurationInput.value = prefs.break_duration || 15;
+          if (studyDurationInput) studyDurationInput.value = prefs.study_duration || 45;
 
           const selected = Array.isArray(prefs.preferred_activities) ? prefs.preferred_activities : [];
-          preferredActivitiesSelect.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-            input.checked = selected.includes(input.value);
-          });
+          if (preferredActivitiesSelect) {
+            preferredActivitiesSelect.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+              input.checked = selected.includes(input.value);
+            });
+          }
           renderSelectedActivities();
 
           activeSchedule = schedule;
           renderTimeline(schedule?.items || [], timeline);
           updateStats(schedule, stats);
-          clearPlanBtn.style.display = schedule ? 'inline-flex' : 'none';
-          statusChip.textContent = schedule ? 'Plan ready' : 'No plan generated yet';
+          if (statusChip) statusChip.textContent = schedule ? 'Plan ready' : 'No plan generated yet';
         } catch (error) {
           console.error(error);
-          statusChip.textContent = 'Unable to load wellness plan';
+          if (statusChip) statusChip.textContent = 'Unable to load wellness plan';
         }
       }
 
@@ -1076,32 +1102,12 @@
           activeSchedule = null;
           renderTimeline([], timeline);
           updateStats(null, { total_minutes: 0, break_minutes: 0, progress_pct: 0 });
-          clearPlanBtn.style.display = 'none';
-          statusChip.textContent = 'No plan generated yet';
+          if (statusChip) statusChip.textContent = 'No plan generated yet';
           showMessage(data.message || 'Plan cleared successfully.', 'success');
           await loadDashboard();
         } catch (error) {
           console.error(error);
           showMessage(error.message || 'Unable to clear the plan.', 'error');
-        }
-      }
-
-      async function clearChat() {
-        const confirmed = window.confirm('Delete the current AI Coach conversation? This clears the chat but keeps your generated plan.');
-        if (!confirmed) return;
-
-        try {
-          const response = await fetch(`/api/chat?schedule_id=${activeSchedule?.id || ''}`, { method: 'DELETE' });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.detail || 'Unable to clear the chat.');
-          }
-          chatMessages.innerHTML = '';
-          appendChat('assistant', 'The chat has been cleared. Ask me anything about your routine, productivity, or schedule.');
-          showMessage(data.message || 'Chat cleared successfully.', 'success');
-        } catch (error) {
-          console.error(error);
-          showMessage(error.message || 'Unable to clear the chat.', 'error');
         }
       }
 
@@ -1124,55 +1130,65 @@
         button.addEventListener('click', () => setActiveView(button.dataset.view));
       });
 
-      plannerForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        generatePlan();
-      });
+      if (plannerForm) {
+        plannerForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          generatePlan();
+        });
+      }
 
-      dashboardGeneratePlanBtn.addEventListener('click', () => {
-        generatePlan();
-      });
-      dashboardRegeneratePlanBtn.addEventListener('click', () => {
-        generatePlan();
-      });
-
-      clearPlanBtn.addEventListener('click', clearPlan);
-      clearChatBtn.addEventListener('click', clearChat);
-      sendChatBtn.addEventListener('click', (event) => {
-        event.preventDefault();
-        sendChat();
-      });
-      chatInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
+      if (dashboardGeneratePlanBtn) {
+        dashboardGeneratePlanBtn.addEventListener('click', () => {
+          generatePlan();
+        });
+      }
+      if (clearChatBtn) clearChatBtn.addEventListener('click', clearChat);
+      if (sendChatBtn) {
+        sendChatBtn.addEventListener('click', (event) => {
           event.preventDefault();
           sendChat();
-        }
-      });
-      preferredActivitiesSelect.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
-        checkbox.addEventListener('change', renderSelectedActivities);
-      });
-      addCustomActivityBtn.addEventListener('click', () => {
-        customActivitiesList.appendChild(createCustomActivityRow({ activity_name: '', start_time: '08:00', end_time: '08:30', category: 'Break' }));
-      });
-      dateSelector.addEventListener('change', async () => {
-        const selectedDate = dateSelector.value;
-        if (!selectedDate) return;
-        const formattedDate = new Date(selectedDate).toISOString().split('T')[0];
-        try {
-          const response = await fetch(`/api/schedules?date=${formattedDate}`);
-          if (!response.ok) throw new Error('Unable to load schedule for the selected date.');
-          const data = await response.json();
-          activeSchedule = data.schedule;
-          renderTimeline(data.schedule.items || [], timeline);
-          updateStats(data.schedule, data.stats);
-          statusChip.textContent = 'Plan ready';
-        } catch (error) {
-          console.error(error);
-          showMessage(error.message || 'Unable to load schedule.', 'error');
-        }
-      });
+        });
+      }
+      if (chatInput) {
+        chatInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendChat();
+          }
+        });
+      }
+      if (preferredActivitiesSelect) {
+        preferredActivitiesSelect.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+          checkbox.addEventListener('change', renderSelectedActivities);
+        });
+      }
+      if (addCustomActivityBtn) {
+        addCustomActivityBtn.addEventListener('click', () => {
+          customActivitiesList.appendChild(createCustomActivityRow({ activity_name: '', start_time: '08:00', end_time: '08:30', category: 'Break' }));
+        });
+      }
+      if (dateSelector) {
+        dateSelector.addEventListener('change', async () => {
+          const selectedDate = dateSelector.value;
+          if (!selectedDate) return;
+          const formattedDate = new Date(selectedDate).toISOString().split('T')[0];
+          try {
+            const response = await fetch(`/api/schedules?date=${formattedDate}`);
+            if (!response.ok) throw new Error('Unable to load schedule for the selected date.');
+            const data = await response.json();
+            const schedule = Array.isArray(data) && data.length ? data[0] : null;
+            activeSchedule = schedule;
+            renderTimeline(schedule?.items || [], timeline);
+            updateStats(schedule || { items: [] }, schedule ? { total_minutes: schedule.total_minutes, break_minutes: 0, progress_pct: 0 } : { total_minutes: 0, break_minutes: 0, progress_pct: 0 });
+            if (statusChip) statusChip.textContent = schedule ? 'Plan ready' : 'No plan generated yet';
+          } catch (error) {
+            console.error(error);
+            showMessage(error.message || 'Unable to load schedule.', 'error');
+          }
+        });
+      }
 
-      dateSelector.value = new Date().toISOString().split('T')[0];
+      if (dateSelector) dateSelector.value = new Date().toISOString().split('T')[0];
 
       const initialHash = window.location.hash.replace('#', '');
       if (initialHash && document.getElementById(`${initialHash}-view`)) {
@@ -1183,7 +1199,7 @@
 
       renderRecommendedQuestions();
       renderSelectedActivities();
-      initCustomActivities();
+      if (customActivitiesList) initCustomActivities();
       loadDashboard();
     </script>
   </body>

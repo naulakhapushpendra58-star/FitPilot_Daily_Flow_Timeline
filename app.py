@@ -537,8 +537,11 @@ async def generate_schedule(payload: Dict[str, Any], db: Session = Depends(get_d
 
 
 @app.get("/api/schedules")
-async def list_schedules(db: Session = Depends(get_db)):
-    schedules = db.query(Schedule).order_by(Schedule.created_at.desc()).all()
+async def list_schedules(date: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(Schedule).order_by(Schedule.created_at.desc())
+    if date:
+        query = query.filter(Schedule.date == date)
+    schedules = query.all()
     result = []
     for schedule in schedules:
         items = db.query(ScheduleItem).filter(ScheduleItem.schedule_id == schedule.id).all()
@@ -842,88 +845,167 @@ def build_daily_routine(profile: Dict[str, Any], plan: List[Any], busy_blocks: L
     wake = profile.get("day_start") or "07:00"
     sleep = profile.get("day_end") or "23:00"
     lunch_time = profile.get("lunch_time") or "12:30"
-    base_items: List[Dict[str, Any]] = []
+    work_start = profile.get("work_start")
+    work_end = profile.get("work_end")
+    study_duration = max(int(profile.get("study_duration") or 0), 30)
+    break_duration = max(int(profile.get("break_duration") or 0), 10)
+    target_duration = max(int(profile.get("target_duration") or 20), 15)
 
-    if wake:
-        base_items.append({
-            "activity_name": "Wake-up",
-            "category": "routine",
-            "start_time": wake,
-            "end_time": _minutes_to_time(_to_minutes(wake) + 30),
-            "duration_minutes": 30,
-            "reason": "Morning reset and start of your daily flow.",
-            "completed": False,
-            "status": "planned",
-        })
+    preferred = parse_list_field(profile.get("preferred_activities") or profile.get("preferred_activity") or profile.get("preference") or [])
+    preferred = [item for item in preferred if item and item.lower() not in {"study", "work", "break", "sleep", "lunch", "dinner"}]
+    if not preferred:
+        preferred = ["Walking"]
 
-    for entry in plan:
-        base_items.append(
+    wake_minutes = _to_minutes(wake)
+    sleep_minutes = _to_minutes(sleep)
+    routine: List[Dict[str, Any]] = []
+
+    def add_item(name: str, category: str, start: str, end: str, reason: str, duration: Optional[int] = None) -> None:
+        if not name or not start or not end:
+            return
+        start_min = _to_minutes(start)
+        end_min = _to_minutes(end)
+        if end_min <= start_min:
+            return
+        routine.append(
             {
-                "activity_name": entry.activity_name,
-                "category": "activity",
-                "start_time": entry.start.strftime("%H:%M"),
-                "end_time": entry.end.strftime("%H:%M"),
-                "duration_minutes": entry.duration_minutes,
-                "reason": entry.reason,
+                "activity_name": name,
+                "category": category,
+                "start_time": start,
+                "end_time": end,
+                "duration_minutes": int(duration if duration is not None else max(0, end_min - start_min)),
+                "reason": reason,
                 "completed": False,
                 "status": "planned",
             }
         )
 
-    if lunch_time:
-        lunch_start = lunch_time
-        lunch_end = _minutes_to_time(_to_minutes(lunch_time) + 30)
-        base_items.append({
-            "activity_name": "Lunch",
-            "category": "meal",
-            "start_time": lunch_start,
-            "end_time": lunch_end,
-            "duration_minutes": 30,
-            "reason": "Scheduled meal break during your midday window.",
-            "completed": False,
-            "status": "planned",
-        })
+    def add_break(start_min: int, end_min: int, label: str = "Recovery break") -> None:
+        if end_min <= start_min:
+            return
+        add_item(label, "break", _minutes_to_time(start_min), _minutes_to_time(end_min), "Short reset to keep the routine sustainable and realistic.", max(0, end_min - start_min))
 
-    study_duration = max(int(profile.get("study_duration") or 0), 0)
-    if study_duration > 0:
-        schedule_block(
-            base_items,
-            "Study block",
-            "focus",
-            "Focused study time using the duration from your planner settings.",
-            study_duration,
-            wake,
-            sleep,
-            busy_blocks,
-        )
+    def add_study_windows(start_min: int, end_min: int) -> None:
+        if end_min <= start_min:
+            return
+        cursor = start_min
+        lunch_min = _to_minutes(lunch_time)
+        lunch_end = lunch_min + 30
 
-    break_duration = max(int(profile.get("break_duration") or 0), 0)
-    if break_duration > 0:
-        schedule_block(
-            base_items,
-            "Recovery break",
-            "break",
-            "Short reset to keep your plan sustainable and realistic.",
-            break_duration,
-            wake,
-            sleep,
-            busy_blocks,
-        )
+        while cursor < end_min:
+            if lunch_time and lunch_min >= cursor and lunch_min < end_min:
+                if cursor < lunch_min:
+                    block_end = min(cursor + study_duration, lunch_min)
+                    add_item(
+                        "Study block",
+                        "focus",
+                        _minutes_to_time(cursor),
+                        _minutes_to_time(block_end),
+                        "Focused work or study block using your planner settings.",
+                        max(0, block_end - cursor),
+                    )
+                    cursor = block_end
+                    if cursor < lunch_min and break_duration > 0 and cursor + break_duration <= lunch_min:
+                        add_break(cursor, cursor + break_duration)
+                        cursor += break_duration
+                if cursor >= lunch_min:
+                    add_item("Lunch", "meal", lunch_time, _minutes_to_time(min(lunch_end, end_min)), "Midday meal and reset before the afternoon focus block.", max(0, min(lunch_end, end_min) - lunch_min))
+                    cursor = min(lunch_end, end_min)
+                    continue
 
-    if sleep:
-        sleep_minutes = _to_minutes(sleep)
-        base_items.append({
-            "activity_name": "Sleep",
-            "category": "sleep",
-            "start_time": sleep,
-            "end_time": _minutes_to_time((sleep_minutes + 30) % (24 * 60)),
-            "duration_minutes": 30,
-            "reason": "Sleep window and wind-down period for recovery.",
-            "completed": False,
-            "status": "planned",
-        })
+            remaining = end_min - cursor
+            if remaining <= 0:
+                break
+            block_length = min(study_duration, remaining)
+            add_item(
+                "Study block",
+                "focus",
+                _minutes_to_time(cursor),
+                _minutes_to_time(cursor + block_length),
+                "Focused work or study block using your planner settings.",
+                block_length,
+            )
+            cursor += block_length
+            if cursor < end_min and break_duration > 0 and cursor + break_duration <= end_min:
+                add_break(cursor, cursor + break_duration)
+                cursor += break_duration
 
-    return dedupe_and_sort_items(base_items)
+    if wake_minutes < sleep_minutes:
+        add_item("Wake-up", "routine", wake, _minutes_to_time(min(wake_minutes + 30, sleep_minutes)), "Morning reset and start of your daily flow.", 30)
+
+    first_fitness = preferred[0]
+    second_fitness = preferred[1] if len(preferred) > 1 else preferred[0]
+
+    morning_start = wake_minutes + 30
+    if work_start:
+        work_start_min = _to_minutes(work_start)
+        if morning_start < work_start_min:
+            morning_end = min(work_start_min, morning_start + target_duration)
+            add_item(first_fitness, "fitness", _minutes_to_time(morning_start), _minutes_to_time(morning_end), f"Morning {first_fitness.lower()} block to match your selected routine.", max(0, morning_end - morning_start))
+            breakfast_end = min(work_start_min, morning_end + 30)
+            if breakfast_end > morning_end:
+                add_item("Breakfast / Morning prep", "meal", _minutes_to_time(morning_end), _minutes_to_time(breakfast_end), "Energy and preparation for the day ahead.", max(0, breakfast_end - morning_end))
+    else:
+        morning_end = min(sleep_minutes, morning_start + target_duration)
+        add_item(first_fitness, "fitness", _minutes_to_time(morning_start), _minutes_to_time(morning_end), f"Morning {first_fitness.lower()} block to match your selected routine.", max(0, morning_end - morning_start))
+
+    if work_start and work_end:
+        work_start_min = _to_minutes(work_start)
+        work_end_min = _to_minutes(work_end)
+        if work_end_min > work_start_min:
+            add_study_windows(work_start_min, work_end_min)
+
+    if work_end:
+        work_end_min = _to_minutes(work_end)
+        recovery_end = min(work_end_min + break_duration, sleep_minutes)
+        if recovery_end > work_end_min:
+            add_break(work_end_min, recovery_end, "Recovery break")
+    else:
+        recovery_end = wake_minutes + 60
+
+    evening_start = recovery_end if 'recovery_end' in locals() and recovery_end > 0 else max(wake_minutes + 60, wake_minutes + 90)
+    evening_window_end = sleep_minutes - 30
+    evening_end = min(evening_start + target_duration, evening_window_end)
+    if evening_end > evening_start and evening_start < sleep_minutes:
+        add_item(second_fitness, "fitness", _minutes_to_time(evening_start), _minutes_to_time(evening_end), f"Evening {second_fitness.lower()} session to finish the day active but recovered.", max(0, evening_end - evening_start))
+        dinner_start = evening_end
+        dinner_end = min(sleep_minutes - 30, dinner_start + 45)
+        if dinner_end > dinner_start:
+            add_item("Dinner / Personal time", "meal", _minutes_to_time(dinner_start), _minutes_to_time(dinner_end), "Evening meal and personal reset before your wind-down.", max(0, dinner_end - dinner_start))
+            wind_down_start = dinner_end
+        else:
+            wind_down_start = evening_end
+        wind_down_end = sleep_minutes
+        if wind_down_end > wind_down_start:
+            add_item("Wind-down", "recovery", _minutes_to_time(wind_down_start), _minutes_to_time(wind_down_end), "Gentle transition into sleep and recovery.", max(0, wind_down_end - wind_down_start))
+    else:
+        wind_down_start = max((work_end_min if work_end else wake_minutes + 90), sleep_minutes - 30)
+        if wind_down_start < sleep_minutes:
+            add_item("Wind-down", "recovery", _minutes_to_time(wind_down_start), sleep, "Gentle transition into sleep and recovery.", max(0, _to_minutes(sleep) - wind_down_start))
+
+    if sleep_minutes > wake_minutes:
+        add_item("Sleep", "sleep", sleep, _minutes_to_time((sleep_minutes + 30) % (24 * 60)), "Sleep window and wind-down period for recovery.", 30)
+
+    cleaned: List[Dict[str, Any]] = []
+    seen = set()
+    for item in sorted(routine, key=lambda entry: (_to_minutes(entry["start_time"]), entry["activity_name"])):
+        key = (item["activity_name"], item["start_time"], item["end_time"])
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(item)
+
+    for index, current in enumerate(cleaned):
+        next_item = cleaned[index + 1] if index + 1 < len(cleaned) else None
+        if next_item is None:
+            continue
+        if _to_minutes(current["end_time"]) > _to_minutes(next_item["start_time"]):
+            current["end_time"] = next_item["start_time"]
+            current["duration_minutes"] = max(0, _to_minutes(current["end_time"]) - _to_minutes(current["start_time"]))
+
+    final = [item for item in cleaned if _to_minutes(item["end_time"]) > _to_minutes(item["start_time"])]
+    final.sort(key=lambda item: (_to_minutes(item["start_time"]), item["activity_name"]))
+    return final
 
 
 def normalize_custom_activity(item: Dict[str, Any], wake_time: Optional[str] = None, sleep_time: Optional[str] = None) -> Dict[str, Any]:
@@ -986,12 +1068,27 @@ def normalize_custom_activities(payload: Dict[str, Any]) -> List[Dict[str, Any]]
 
 def sort_and_validate_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     sorted_items = sorted(items, key=lambda item: (_to_minutes(item.get("start_time") or "00:00"), item.get("activity_name", "")))
-    for previous, current in zip(sorted_items, sorted_items[1:]):
+    adjusted: List[Dict[str, Any]] = []
+    for item in sorted_items:
+        start_minutes = _to_minutes(item.get("start_time") or "00:00")
+        end_minutes = _to_minutes(item.get("end_time") or item.get("start_time") or "00:00")
+        if end_minutes <= start_minutes:
+            continue
+        if not adjusted:
+            adjusted.append(item)
+            continue
+
+        previous = adjusted[-1]
         previous_end = _to_minutes(previous.get("end_time") or previous.get("start_time") or "00:00")
-        current_start = _to_minutes(current.get("start_time") or "00:00")
-        if previous_end > current_start:
-            raise ValueError(f"Activity overlap detected between '{previous.get('activity_name')}' and '{current.get('activity_name')}'.")
-    return sorted_items
+        if start_minutes < previous_end:
+            start_minutes = previous_end
+            if start_minutes >= end_minutes:
+                continue
+            item["start_time"] = _minutes_to_time(start_minutes)
+            item["duration_minutes"] = max(0, end_minutes - start_minutes)
+            item["end_time"] = _minutes_to_time(end_minutes)
+        adjusted.append(item)
+    return adjusted
 
 
 def merge_generated_schedule(payload: Dict[str, Any], generated_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
