@@ -223,13 +223,18 @@
               </div>
 
               <div class="row">
-                <div><label>Available time for fitness</label><input id="available_minutes" type="number" min="30" max="300" value="120" /></div>
-                <div><label>Target activity duration (min)</label><input id="target_duration" type="number" min="5" max="60" value="20" /></div>
+                <div><label>Lunch time</label><input id="lunch_time" type="time" value="12:30" /></div>
+                <div><label>Work/study start</label><input id="work_start" type="time" value="09:00" /></div>
               </div>
 
               <div class="row">
-                <div><label>Work/study start</label><input id="work_start" type="time" value="09:00" /></div>
                 <div><label>Work/study end</label><input id="work_end" type="time" value="17:00" /></div>
+                <div></div>
+              </div>
+
+              <div class="row">
+                <div><label>Available time for fitness</label><input id="available_minutes" type="number" min="30" max="300" value="120" /></div>
+                <div><label>Target activity duration (min)</label><input id="target_duration" type="number" min="5" max="60" value="20" /></div>
               </div>
 
               <div>
@@ -434,6 +439,25 @@
         });
       }
 
+      async function parseJsonResponse(response) {
+        const text = await response.text();
+        if (!text) {
+          return { success: false, error: { message: 'The server returned an empty response.' } };
+        }
+
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return {
+            success: false,
+            error: {
+              message: 'The server returned an invalid JSON response.',
+              raw: text.slice(0, 300),
+            },
+          };
+        }
+      }
+
       async function generatePlan() {
         if (isGenerating) return;
         isGenerating = true;
@@ -454,9 +478,10 @@
             body: JSON.stringify(payload),
           });
 
-          const data = await response.json();
+          const data = await parseJsonResponse(response);
           if (!response.ok) {
-            throw new Error(data.detail || 'Unable to generate the plan.');
+            const message = data?.detail || data?.error?.message || 'Unable to generate the plan.';
+            throw new Error(message);
           }
 
           const schedule = data.schedule || { items: [] };
@@ -500,9 +525,10 @@
             }),
           });
 
-          const data = await response.json();
+          const data = await parseJsonResponse(response);
           if (!response.ok) {
-            throw new Error(data.detail || 'AI Coach request failed.');
+            const message = data?.detail || data?.error?.message || 'AI Coach request failed.';
+            throw new Error(message);
           }
 
           appendChat('assistant', data.answer || 'No answer returned.');
