@@ -434,6 +434,88 @@
         });
       }
 
+      async function generatePlan() {
+        if (isGenerating) return;
+        isGenerating = true;
+        plannerSubmitBtn.disabled = true;
+        plannerSubmitBtn.textContent = 'Generating...';
+        clearMessage();
+
+        try {
+          const payload = {
+            ...getFormValues(),
+            custom_activities: getCustomActivities(),
+            lunch_time: document.getElementById('lunch_time')?.value || '12:30',
+          };
+
+          const response = await fetch('/api/schedules/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || 'Unable to generate the plan.');
+          }
+
+          const schedule = data.schedule || { items: [] };
+          activeSchedule = schedule;
+          renderTimeline(schedule.items || [], timeline);
+          updateStats(schedule, data.stats || null);
+          clearPlanBtn.style.display = schedule.items?.length ? 'inline-flex' : 'none';
+          statusChip.textContent = 'Plan ready';
+          showMessage(data.message || 'Schedule generated successfully.', 'success');
+          await savePreferencesFromForm();
+          await loadDashboard();
+        } catch (error) {
+          console.error(error);
+          showMessage(error.message || 'Unable to generate the plan.', 'error');
+        } finally {
+          isGenerating = false;
+          plannerSubmitBtn.disabled = false;
+          plannerSubmitBtn.textContent = 'Generate Plan';
+        }
+      }
+
+      async function sendChat() {
+        const question = chatInput.value.trim();
+        if (!question || isSending) {
+          return;
+        }
+
+        appendChat('user', question);
+        chatInput.value = '';
+        setChatLoading(true);
+        clearMessage();
+
+        try {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              question,
+              provider: providerSelect.value,
+              schedule_id: activeSchedule?.id || null,
+            }),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || 'AI Coach request failed.');
+          }
+
+          appendChat('assistant', data.answer || 'No answer returned.');
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        } catch (error) {
+          console.error(error);
+          appendChat('assistant', error.message || 'The AI Coach request failed.');
+          showMessage(error.message || 'The AI Coach request failed.', 'error');
+        } finally {
+          setChatLoading(false);
+        }
+      }
+
       function getFormValues() {
         return {
           goal: document.getElementById('goal').value,

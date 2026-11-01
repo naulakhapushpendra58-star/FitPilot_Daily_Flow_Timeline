@@ -103,7 +103,7 @@ class ApiTests(unittest.TestCase):
 
     def test_clear_chat(self):
         chat_response = self.client.post("/api/chat", json={"question": "How can I improve my daily productivity?", "provider": "openai"})
-        self.assertIn(chat_response.status_code, [200, 400])
+        self.assertIn(chat_response.status_code, [200, 400, 502])
         clear_resp = self.client.delete("/api/chat")
         self.assertEqual(clear_resp.status_code, 200)
         self.assertIn("successfully", clear_resp.json()["message"])

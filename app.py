@@ -690,9 +690,11 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
             history=history,
         )
     except Exception as exc:
-        fallback = answer_fitness_question(question, KB, profile)
-        answer = f"AI provider unavailable ({provider}): {str(exc)}. Using local FitPilot guidance instead: {fallback}"
-        provider = "grounded-fallback"
+        answer = (
+            f"AI provider unavailable for '{provider}'. "
+            f"{exc}. Please configure a valid API key and billing/quota for {provider} to use the AI Coach."
+        )
+        provider = provider
 
     db.add(ChatMessage(role="user", content=question, schedule_id=schedule_id))
     db.add(ChatMessage(role="assistant", content=answer, schedule_id=schedule_id))
